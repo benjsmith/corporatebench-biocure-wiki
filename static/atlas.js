@@ -349,9 +349,10 @@
       'Loading WikiLinks + building force layout…</div>';
 
     var corpusSize = pageCount(data);
-    /* ~1k nodes in view ⇒ show edges. scale≈1 fits the full field. */
-    var edgeMinScale = Math.max(0.35, Math.sqrt(Math.max(1, corpusSize) / 1000));
-    window.__ceAtlasEdgeMinScale = edgeMinScale;
+    /* Edge strokes: previous sqrt(N/1000)≈6.3 was ABOVE camera max (ki=4),
+     * so edges never painted. Keep a mild zoom-out hide only; always on
+     * by the time you are moderately zoomed in (and at max zoom). */
+    window.__ceAtlasEdgeMinScale = 0.85;
 
     var pages = {};
     var nodes = data.nodes || [];
@@ -441,10 +442,13 @@
       });
       controls = initAtlasControls(handle);
       initAtlasSearch(handle, atlasData);
-      console.info(
-        'Atlas mounted with', edges.length, 'edges; draw when scale≥',
-        edgeMinScale.toFixed(2), '(~1k nodes in view)'
-      );
+      /* Subgraph/minigraph + any other consumer still hold the slim
+       * data object from main.js (edges: []). Point them at the full set. */
+      data.edges = edges;
+      if (window.Subgraph && typeof Subgraph.init === 'function') {
+        Subgraph.init(data);
+      }
+      console.info('Atlas mounted with', edges.length, 'edges; stroke min scale', window.__ceAtlasEdgeMinScale);
     }).catch(function (err) {
       console.error('Atlas edge preload / mount failed', err);
       container.innerHTML =
