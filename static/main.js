@@ -6,7 +6,7 @@
   loading.id = 'ce-loading';
   loading.setAttribute('role', 'status');
   loading.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(10,10,12,.92);color:#e8e8ea;font:500 15px/1.45 system-ui,sans-serif;padding:24px;text-align:center';
-  loading.innerHTML = '<div><div style="font-size:16px;margin-bottom:8px">Loading Biocure wiki…</div><div style="opacity:.7;font-size:13px">Downloading atlas index (~3&nbsp;MB compressed). Page bodies load on demand.</div></div>';
+  loading.innerHTML = '<div><div style="font-size:16px;margin-bottom:8px">Loading Biocure wiki…</div><div style="opacity:.7;font-size:13px">Downloading atlas index (~0.8&nbsp;MB compressed / ~8&nbsp;MB in memory). Page bodies load on demand.</div></div>';
   document.body.appendChild(loading);
   function setLoading(msg) {
     const el = loading.querySelector('div div:last-child');
@@ -56,6 +56,41 @@
     data = await loadWikiData();
     setLoading('Parsed ' + ((data.nodes && data.nodes.length) || 0).toLocaleString() +
       ' pages. Building sidebar + atlas…');
+    /* Pages bundle ships pages as {id: {body_shard}} only. Fill titles/types
+     * from nodes so Modal/Atlas keep working without a second 10MB of JSON. */
+    if (data.pages && data.nodes) {
+      const byId = Object.create(null);
+      for (const n of data.nodes) byId[n.id] = n;
+      const hydrated = Object.create(null);
+      for (const n of data.nodes) {
+        const stub = data.pages[n.id] || {};
+        hydrated[n.id] = {
+          id: n.id,
+          title: n.title || n.id,
+          type: n.type,
+          path: n.path || (n.id + '.md'),
+          properties: {},
+          body_html: '',
+          body_shard: stub.body_shard,
+        };
+      }
+      // keep any page keys not in nodes (shouldn't happen)
+      for (const id of Object.keys(data.pages)) {
+        if (!hydrated[id]) {
+          const stub = data.pages[id];
+          hydrated[id] = {
+            id: id,
+            title: id,
+            type: 'unclassified',
+            path: id + '.md',
+            properties: {},
+            body_html: '',
+            body_shard: stub && stub.body_shard,
+          };
+        }
+      }
+      data.pages = hydrated;
+    }
   } catch (e) {
     clearLoading();
     document.body.innerHTML =

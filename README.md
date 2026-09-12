@@ -20,7 +20,7 @@ Interactive atlas / wiki viewer for the Biocure CorporateBench tranche curated w
 ## Notes
 
 - Edit / vault-upload buttons need a local `viewer.sh` server; they are inactive on GitHub Pages.
-- Atlas index is a slim `data.json.gz` (~3 MB). Full page HTML lives in `bodies/NN.json.gz` shards and loads when you open a page (keeps browser memory safe).
+- Atlas index is ultra-slim `data.json.gz` (~0.8 MB gz / ~8 MB inflate: all node titles + 2k sampled edges; no page bodies). Full HTML is in `bodies/NN.json.gz` shards loaded when you open a page.
 
 ## License
 
