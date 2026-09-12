@@ -320,15 +320,39 @@
 
   // Called by main.js instead of Graph.init when the flag is on.
   // Returns a Graph-compatible facade so focus()/clearFocus() callers
-  // keep working.
+  // keep working. Edges are preloaded BEFORE mount so force layout
+  // clusters correctly; edge *strokes* are gated by camera scale so
+  // zoomed-out views stay readable (~1k nodes on screen ⇒ edges on).
+  function gunzipJson(url) {
+    return fetch(url).then(function (res) {
+      if (!res.ok) throw new Error(url + ' HTTP ' + res.status);
+      return res.arrayBuffer();
+    }).then(function (buf) {
+      var bytes = new Uint8Array(buf);
+      var isGzip = bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+      if (isGzip) {
+        if (!window.DecompressionStream) {
+          return Promise.reject(new Error('DecompressionStream unavailable'));
+        }
+        var stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'));
+        return new Response(stream).text();
+      }
+      return new TextDecoder().decode(bytes);
+    }).then(function (text) { return JSON.parse(text); });
+  }
+
   function init(data) {
     var container = document.getElementById('graph');
     if (!container || !window.KnowledgeAtlas) return null;
-    container.innerHTML = '';
+    container.innerHTML =
+      '<div style="padding:28px;color:#bdbdc8;font:14px/1.45 system-ui">' +
+      'Loading WikiLinks + building force layout…</div>';
 
     var corpusSize = pageCount(data);
-    /* Pages ships pages as {body_shard} only. KnowledgeAtlas requires
-     * id/title/type on each page — build those from nodes here. */
+    /* ~1k nodes in view ⇒ show edges. scale≈1 fits the full field. */
+    var edgeMinScale = Math.max(0.35, Math.sqrt(Math.max(1, corpusSize) / 1000));
+    window.__ceAtlasEdgeMinScale = edgeMinScale;
+
     var pages = {};
     var nodes = data.nodes || [];
     for (var i = 0; i < nodes.length; i++) {
@@ -344,20 +368,58 @@
         body_shard: stub.body_shard,
       };
     }
-    var atlasData = {
-      workspace: data.workspace,
-      generated_at: data.generated_at,
-      palette: data.palette,
-      nodes: nodes,
-      edges: data.edges || [],
-      pages: pages,
+
+    var handle = null;
+    var controls = null;
+    var facade = {
+      focus: function (pageId) {
+        if (handle && handle.engine) handle.engine.focus(pageId, 'system');
+      },
+      select: function (ids) {
+        if (handle && handle.engine && handle.engine.select) {
+          handle.engine.select(ids || [], 'replace');
+        }
+      },
+      clearFocus: function () {
+        if (handle && handle.engine && handle.engine.select) {
+          handle.engine.select([], 'replace');
+        }
+      },
+      setLabelMode: function (mode) {
+        if (controls && controls.setMode) controls.setMode(mode);
+      },
+      cycleLabelMode: function () {
+        if (controls && controls.cycleMode) controls.cycleMode();
+      },
+      destroy: function () {
+        if (handle) handle.destroy();
+      },
+      subscribe: function (cb) {
+        return handle && handle.engine ? handle.engine.on(cb) : function () {};
+      },
+      getSnapshot: function () {
+        return handle && handle.engine ? handle.engine.snapshot() : null;
+      },
+      get controller() {
+        return handle ? handle.engine : null;
+      },
     };
 
-    /* Pages policy (user 2026-09-12): always individual nodes (grouped=0).
-     * Draw load is controlled by a raised min camera zoom so the main
-     * window keeps ~1k nodes in view; the minimap still shows everyone. */
-    var handle;
-    try {
+    var edgeUrl = (data && data.edges_url) || 'edges.json.gz';
+    var edgePromise = (data.edges && data.edges.length)
+      ? Promise.resolve(data.edges)
+      : gunzipJson(edgeUrl);
+
+    edgePromise.then(function (edges) {
+      var atlasData = {
+        workspace: data.workspace,
+        generated_at: data.generated_at,
+        palette: data.palette,
+        nodes: nodes,
+        edges: edges,
+        pages: pages,
+      };
+      container.innerHTML = '';
       handle = window.KnowledgeAtlas.mount(container, {
         data: atlasData,
         config: {
@@ -368,7 +430,7 @@
           budget: {
             maxNodes: Math.max(1, corpusSize),
             maxAggregates: 0,
-            maxEdges: 200000,  /* full WikiLink set; drawn only when zoomed in */
+            maxEdges: Math.max(edges.length, 900),
             maxBundles: 0,
             maxLabels: 60,
           },
@@ -377,102 +439,20 @@
           window.location.hash = '#page=' + encodeURIComponent(id);
         },
       });
-    } catch (err) {
-      console.error('Atlas mount failed', err);
+      controls = initAtlasControls(handle);
+      initAtlasSearch(handle, atlasData);
+      console.info(
+        'Atlas mounted with', edges.length, 'edges; draw when scale≥',
+        edgeMinScale.toFixed(2), '(~1k nodes in view)'
+      );
+    }).catch(function (err) {
+      console.error('Atlas edge preload / mount failed', err);
       container.innerHTML =
-        '<div style="padding:24px;color:#ccc;font:14px system-ui">Atlas failed to start. See console.</div>';
-      return null;
-    }
-    var controls = initAtlasControls(handle);
-    initAtlasSearch(handle, typeof atlasData !== "undefined" ? atlasData : data);
+        '<div style="padding:24px;color:#ccc;font:14px system-ui">' +
+        'Atlas failed to start (edge load). See console.</div>';
+    });
 
-    /* Zoom-triggered full edge load (Pages). data.json.gz ships nodes only;
-     * edges.json.gz (~1.2MB) is fetched the first time camera scale passes
-     * __ceAtlasEdgeMinScale, then injected into the live graph. Drawing is
-     * also gated on that scale in knowledge-atlas.js so zoomed-out stays clean. */
-    (function setupZoomEdges() {
-      var EDGE_URL = (data && data.edges_url) || 'edges.json.gz';
-      var minScale = window.__ceAtlasEdgeMinScale = window.__ceAtlasEdgeMinScale || 0.5;
-      var state = { inflight: false, injected: false };
-      var engine = handle.engine;
-
-      async function gunzipJson(url) {
-        var res = await fetch(url);
-        if (!res.ok) throw new Error(url + ' HTTP ' + res.status);
-        var buf = await res.arrayBuffer();
-        var bytes = new Uint8Array(buf);
-        var isGzip = bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
-        var text;
-        if (isGzip) {
-          if (!window.DecompressionStream) throw new Error('DecompressionStream unavailable');
-          var stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'));
-          text = await new Response(stream).text();
-        } else {
-          text = new TextDecoder().decode(bytes);
-        }
-        return JSON.parse(text);
-      }
-
-      async function injectEdges() {
-        if (state.injected || state.inflight) return;
-        state.inflight = true;
-        try {
-          var edges = await gunzipJson(EDGE_URL);
-          var graph = engine && engine.source && engine.source.graph;
-          if (!graph || !graph.addEdge) throw new Error('atlas graph unavailable');
-          for (var i = 0; i < edges.length; i++) {
-            var e = edges[i];
-            graph.addEdge(e.source, e.target, e.type || 'wikilink', e.confidence == null ? 1 : e.confidence);
-          }
-          state.injected = true;
-          if (typeof engine.requestScene === 'function') engine.requestScene();
-          console.info('Atlas edges loaded:', edges.length);
-        } catch (err) {
-          console.warn('Atlas edge load failed', err);
-        } finally {
-          state.inflight = false;
-        }
-      }
-
-      window.__ceAtlasOnScale = function (scale) {
-        if (typeof controls.setScaleHint === 'function') controls.setScaleHint(scale);
-        if (scale >= minScale) injectEdges();
-      };
-    })();
-
-    return {
-      focus: function (pageId) {
-        handle.engine.focus(pageId, 'system');
-      },
-      select: function (ids) {
-        if (handle.engine && handle.engine.select) {
-          handle.engine.select(ids || [], 'replace');
-        }
-      },
-      clearFocus: function () {
-        if (handle.engine && handle.engine.select) {
-          handle.engine.select([], 'replace');
-        }
-      },
-      setLabelMode: controls.setMode,
-      cycleLabelMode: controls.cycleMode,
-      destroy: function () {
-        handle.destroy();
-      },
-      /* Chrome-free info surface: the engine renders no panels — host
-       * chrome (the future telemetry bar, discovery shelf UI, Switch
-       * Bay's rail/tab) subscribes here. subscribe(cb) receives every
-       * AtlasEvent (scene-ready stats, discovery-engaged, trail-changed,
-       * telemetry…); getSnapshot() returns {scene, layout, state, stats}
-       * for pull-style rendering. */
-      subscribe: function (cb) {
-        return handle.engine.on(cb);
-      },
-      getSnapshot: function () {
-        return handle.engine.snapshot();
-      },
-      controller: handle.engine,
-    };
+    return facade;
   }
 
   window.AtlasViewer = {
