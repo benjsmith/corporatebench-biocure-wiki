@@ -494,6 +494,9 @@
       if (window.Subgraph && typeof Subgraph.init === 'function') {
         Subgraph.init(data);
       }
+      if (window.Sidebar && typeof Sidebar.updateCounts === 'function') {
+        Sidebar.updateCounts(data);
+      }
       console.info('Atlas mounted with', edges.length, 'edges; stroke min scale', window.__ceAtlasEdgeMinScale);
     }).catch(function (err) {
       console.error('Atlas edge preload / mount failed', err);
