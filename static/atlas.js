@@ -205,28 +205,62 @@
     container.innerHTML = '';
 
     var corpusSize = pageCount(data);
+    /* Pages ships pages as {body_shard} only. KnowledgeAtlas requires
+     * id/title/type on each page — build those from nodes here. */
+    var pages = {};
+    var nodes = data.nodes || [];
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      var stub = (data.pages && data.pages[n.id]) || {};
+      pages[n.id] = {
+        id: n.id,
+        title: n.title || n.id,
+        type: n.type,
+        path: n.path || (n.id + '.md'),
+        properties: {},
+        body_html: '',
+        body_shard: stub.body_shard,
+      };
+    }
+    var atlasData = {
+      workspace: data.workspace,
+      generated_at: data.generated_at,
+      palette: data.palette,
+      nodes: nodes,
+      edges: data.edges || [],
+      pages: pages,
+    };
+
     /* Pages policy (user 2026-09-12): always individual nodes (grouped=0).
      * Draw load is controlled by a raised min camera zoom so the main
      * window keeps ~1k nodes in view; the minimap still shows everyone. */
-    var handle = window.KnowledgeAtlas.mount(container, {
-      data: data,
-      config: {
-        layout: 'hybrid',
-        corpusSize: corpusSize,
-        coreCapacity: Math.max(1, corpusSize),
-        maxVisibleNodes: Math.max(1, corpusSize),
-        budget: {
-          maxNodes: Math.max(1, corpusSize),
-          maxAggregates: 0,
-          maxEdges: Math.max(900, (data.edges || []).length),
-          maxBundles: 0,
-          maxLabels: 60,
+    var handle;
+    try {
+      handle = window.KnowledgeAtlas.mount(container, {
+        data: atlasData,
+        config: {
+          layout: 'hybrid',
+          corpusSize: corpusSize,
+          coreCapacity: Math.max(1, corpusSize),
+          maxVisibleNodes: Math.max(1, corpusSize),
+          budget: {
+            maxNodes: Math.max(1, corpusSize),
+            maxAggregates: 0,
+            maxEdges: Math.max(900, (atlasData.edges || []).length),
+            maxBundles: 0,
+            maxLabels: 60,
+          },
         },
-      },
-      onOpenItem: function (id) {
-        window.location.hash = '#page=' + encodeURIComponent(id);
-      },
-    });
+        onOpenItem: function (id) {
+          window.location.hash = '#page=' + encodeURIComponent(id);
+        },
+      });
+    } catch (err) {
+      console.error('Atlas mount failed', err);
+      container.innerHTML =
+        '<div style="padding:24px;color:#ccc;font:14px system-ui">Atlas failed to start. See console.</div>';
+      return null;
+    }
     var controls = initAtlasControls(handle);
 
     return {

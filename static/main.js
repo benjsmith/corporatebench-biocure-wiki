@@ -79,16 +79,21 @@
   let graphApi = Graph;
   let viewerMode = 'classic';
   const startGraph = () => {
-    if (window.AtlasViewer && AtlasViewer.enabled(data) && window.KnowledgeAtlas) {
-      const atlas = AtlasViewer.init(data);
-      if (atlas) {
-        graphApi = atlas;
-        viewerMode = 'atlas';
+    try {
+      if (window.AtlasViewer && AtlasViewer.enabled(data) && window.KnowledgeAtlas) {
+        const atlas = AtlasViewer.init(data);
+        if (atlas) {
+          graphApi = atlas;
+          viewerMode = 'atlas';
+        } else {
+          Graph.init(data);
+        }
       } else {
         Graph.init(data);
       }
-    } else {
-      Graph.init(data);
+    } catch (err) {
+      console.error('graph start failed', err);
+      try { Graph.init(data); } catch (e2) { console.error(e2); }
     }
     document.body.dataset.viewer = viewerMode;
     if (window.AtlasViewer && AtlasViewer.initChoice) {
