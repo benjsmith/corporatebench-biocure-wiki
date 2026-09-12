@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Downloads — Biocure CE wiki</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0; min-height: 100vh; font: 15px/1.5 system-ui, sans-serif;
+      background: #101014; color: #e8e8ee; padding: 32px 20px;
+    }
+    main { max-width: 640px; margin: 0 auto; }
+    h1 { font-size: 1.35rem; margin: 0 0 8px; }
+    p.muted { opacity: .7; margin: 0 0 24px; }
+    a.back { color: #7aa2ff; text-decoration: none; font-size: 13px; }
+    a.back:hover { text-decoration: underline; }
+    .card {
+      background: #18181f; border: 1px solid #2a2a34; border-radius: 12px;
+      padding: 18px 18px 14px; margin: 0 0 14px;
+    }
+    .card h2 { font-size: 1rem; margin: 0 0 6px; }
+    .card p { margin: 0 0 12px; opacity: .8; font-size: 13px; }
+    .btn {
+      display: inline-block; padding: 10px 14px; border-radius: 8px;
+      background: #2f6fed; color: #fff; text-decoration: none; font-weight: 600;
+      font-size: 14px;
+    }
+    .btn:hover { filter: brightness(1.08); }
+    .btn.secondary { background: #2a2a34; color: #e8e8ee; margin-right: 8px; }
+    code { font-size: 12px; opacity: .85; }
+  </style>
+</head>
+<body>
+  <main>
+    <p><a class="back" href="./">← Back to atlas</a></p>
+    <h1>Download Biocure wiki + vault</h1>
+    <p class="muted">Frozen snapshot <code>hybrid-sql-scalars @ 76142912</code> (pin-restored).</p>
+
+    <div class="card">
+      <h2>Full bundle (recommended)</h2>
+      <p>Single <code>.tar.gz</code> with <code>wiki/</code> and <code>vault/</code> (~102&nbsp;MB).</p>
+      <a class="btn" href="https://github.com/benjsmith/corporatebench-biocure-wiki/releases/download/v1.0.0-hybrid-76142912/biocure-wiki-vault-76142912.tar.gz" download>Download wiki + vault</a>
+    </div>
+
+    <div class="card">
+      <h2>Separate archives</h2>
+      <p>Wiki markdown only (~14&nbsp;MB) or vault sources only (~88&nbsp;MB).</p>
+      <a class="btn secondary" href="https://github.com/benjsmith/corporatebench-biocure-wiki/releases/download/v1.0.0-hybrid-76142912/wiki-hybrid-76142912.tar.gz" download>Wiki only</a>
+      <a class="btn secondary" href="https://github.com/benjsmith/corporatebench-biocure-wiki/releases/download/v1.0.0-hybrid-76142912/vault.tar.gz" download>Vault only</a>
+    </div>
+
+    <p class="muted">Also on GitHub Releases: <a class="back" href="https://github.com/benjsmith/corporatebench-biocure-wiki/releases/tag/v1.0.0-hybrid-76142912">v1.0.0-hybrid-76142912</a></p>
+  </main>
+</body>
+</html>

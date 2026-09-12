@@ -4,6 +4,16 @@ Interactive atlas / wiki viewer for the Biocure CorporateBench tranche curated w
 
 **Live site:** https://benjsmith.github.io/corporatebench-biocure-wiki/
 
+## Downloads
+
+| Archive | Size | Link |
+|---------|------|------|
+| **Wiki + vault (combined)** | ~102 MB | [biocure-wiki-vault-76142912.tar.gz](https://github.com/benjsmith/corporatebench-biocure-wiki/releases/download/v1.0.0-hybrid-76142912/biocure-wiki-vault-76142912.tar.gz) |
+| Wiki only | ~14 MB | [wiki-hybrid-76142912.tar.gz](https://github.com/benjsmith/corporatebench-biocure-wiki/releases/download/v1.0.0-hybrid-76142912/wiki-hybrid-76142912.tar.gz) |
+| Vault only | ~88 MB | [vault.tar.gz](https://github.com/benjsmith/corporatebench-biocure-wiki/releases/download/v1.0.0-hybrid-76142912/vault.tar.gz) |
+
+On the live site: [Downloads](https://benjsmith.github.io/corporatebench-biocure-wiki/downloads.html)
+
 ## What’s here
 
 | Path | Contents |
