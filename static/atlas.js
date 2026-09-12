@@ -196,6 +196,128 @@
     });
   }
 
+
+  function initAtlasSearch(handle, data) {
+    var wrap = document.getElementById('atlas-search-wrap');
+    var input = document.getElementById('atlas-search');
+    var results = document.getElementById('atlas-search-results');
+    if (!wrap || !input || !results || !window.Fuse) return;
+    wrap.hidden = false;
+
+    var records = (data.nodes || []).map(function (n) {
+      return { id: n.id, title: n.title || n.id, type: n.type || '' };
+    });
+    var fuse = new Fuse(records, {
+      keys: [
+        { name: 'title', weight: 0.75 },
+        { name: 'type', weight: 0.1 },
+        { name: 'id', weight: 0.15 },
+      ],
+      threshold: 0.35,
+      ignoreLocation: true,
+      minMatchCharLength: 1,
+    });
+
+    var active = -1;
+    var currentHits = [];
+
+    function clearHighlights() {
+      if (handle.engine && handle.engine.select) {
+        handle.engine.select([], 'replace');
+      }
+      results.hidden = true;
+      results.innerHTML = '';
+      active = -1;
+      currentHits = [];
+    }
+
+    function paintResults(hits) {
+      currentHits = hits;
+      active = hits.length ? 0 : -1;
+      if (!hits.length) {
+        results.hidden = true;
+        results.innerHTML = '';
+        return;
+      }
+      results.hidden = false;
+      results.innerHTML = hits.map(function (h, i) {
+        return '<button type="button" class="atlas-search-hit" role="option" data-idx="' + i + '"' +
+          (i === active ? ' aria-selected="true"' : '') + '>' +
+          '<span class="hit-type">' + escapeHtml(h.type || '') + '</span>' +
+          '<span class="hit-title">' + escapeHtml(h.title) + '</span></button>';
+      }).join('');
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"]/g, function (c) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c];
+      });
+    }
+
+    function applyHits(hits) {
+      var ids = hits.map(function (h) { return h.id; });
+      if (handle.engine && handle.engine.select) {
+        handle.engine.select(ids.slice(0, 80), 'replace');
+      }
+      paintResults(hits.slice(0, 12));
+      if (hits[0] && handle.engine && handle.engine.focus) {
+        // Soft focus first hit so the camera moves toward it without opening.
+        try { handle.engine.hover(hits[0].id); } catch (e) {}
+      }
+    }
+
+    function openHit(hit) {
+      if (!hit) return;
+      if (handle.engine && handle.engine.focus) {
+        handle.engine.focus(hit.id, 'user');
+      }
+      window.location.hash = '#page=' + encodeURIComponent(hit.id);
+      results.hidden = true;
+    }
+
+    input.addEventListener('input', function () {
+      var q = input.value.trim();
+      if (!q) { clearHighlights(); return; }
+      var hits = fuse.search(q, { limit: 40 }).map(function (r) { return r.item; });
+      applyHits(hits);
+    });
+
+    input.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape') {
+        input.value = '';
+        clearHighlights();
+        input.blur();
+        return;
+      }
+      if (ev.key === 'ArrowDown') {
+        ev.preventDefault();
+        if (!currentHits.length) return;
+        active = Math.min(currentHits.length - 1, active + 1);
+        paintResults(currentHits);
+        return;
+      }
+      if (ev.key === 'ArrowUp') {
+        ev.preventDefault();
+        if (!currentHits.length) return;
+        active = Math.max(0, active - 1);
+        paintResults(currentHits);
+        return;
+      }
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        openHit(currentHits[Math.max(0, active)] || currentHits[0]);
+      }
+    });
+
+    results.addEventListener('click', function (ev) {
+      var btn = ev.target.closest && ev.target.closest('.atlas-search-hit');
+      if (!btn) return;
+      var idx = parseInt(btn.dataset.idx, 10);
+      openHit(currentHits[idx]);
+    });
+  }
+
+
   // Called by main.js instead of Graph.init when the flag is on.
   // Returns a Graph-compatible facade so focus()/clearFocus() callers
   // keep working.
@@ -262,6 +384,7 @@
       return null;
     }
     var controls = initAtlasControls(handle);
+    initAtlasSearch(handle, typeof atlasData !== "undefined" ? atlasData : data);
 
     /* Zoom-triggered full edge load (Pages). data.json.gz ships nodes only;
      * edges.json.gz (~1.2MB) is fetched the first time camera scale passes
@@ -321,7 +444,16 @@
       focus: function (pageId) {
         handle.engine.focus(pageId, 'system');
       },
-      clearFocus: function () {},
+      select: function (ids) {
+        if (handle.engine && handle.engine.select) {
+          handle.engine.select(ids || [], 'replace');
+        }
+      },
+      clearFocus: function () {
+        if (handle.engine && handle.engine.select) {
+          handle.engine.select([], 'replace');
+        }
+      },
       setLabelMode: controls.setMode,
       cycleLabelMode: controls.cycleMode,
       destroy: function () {
