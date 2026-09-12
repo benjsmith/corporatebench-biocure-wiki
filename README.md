@@ -20,7 +20,7 @@ Interactive atlas / wiki viewer for the Biocure CorporateBench tranche curated w
 ## Notes
 
 - Edit / vault-upload buttons need a local `viewer.sh` server; they are inactive on GitHub Pages.
-- Bundle is gzipped because the uncompressed `data.json` exceeds GitHub’s 100 MB file limit.
+- Atlas index is a slim `data.json.gz` (~3 MB). Full page HTML lives in `bodies/NN.json.gz` shards and loads when you open a page (keeps browser memory safe).
 
 ## License
 

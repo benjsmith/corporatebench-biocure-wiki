@@ -9,6 +9,43 @@ window.Modal = (function () {
   let pages = {};
   let modal, backdrop, closeBtn, titleEl, propsEl, bodyEl;
   let onClose = null;
+  const shardCache = {};  // shardId -> { pageId: body_html }
+  const shardInflight = {};
+
+  async function gunzipJson(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(url + ' HTTP ' + res.status);
+    const buf = await res.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    const isGzip = bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+    let text;
+    if (isGzip) {
+      if (!window.DecompressionStream) throw new Error('DecompressionStream unavailable');
+      const stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'));
+      text = await new Response(stream).text();
+    } else {
+      text = new TextDecoder().decode(bytes);
+    }
+    return JSON.parse(text);
+  }
+
+  async function ensureBody(page) {
+    if (!page) return '';
+    if (page.body_html) return page.body_html;
+    const sid = page.body_shard;
+    if (sid == null) return '';
+    if (!shardCache[sid]) {
+      if (!shardInflight[sid]) {
+        shardInflight[sid] = gunzipJson('bodies/' + sid + '.json.gz')
+          .then(map => { shardCache[sid] = map; delete shardInflight[sid]; return map; })
+          .catch(err => { delete shardInflight[sid]; throw err; });
+      }
+      await shardInflight[sid];
+    }
+    const html = (shardCache[sid] && shardCache[sid][page.id]) || '';
+    page.body_html = html;
+    return html;
+  }
 
   function init(data) {
     pages = data.pages || {};
@@ -49,7 +86,9 @@ window.Modal = (function () {
     }
     titleEl.textContent = page.title || pageId;
     renderProperties(page);
-    bodyEl.innerHTML = page.body_html || '';
+    bodyEl.innerHTML = page.body_html
+      ? page.body_html
+      : '<p style="opacity:.7">Loading page body…</p>';
     modal.classList.remove('hidden');
     backdrop.classList.remove('hidden');
     modal.setAttribute('aria-hidden', 'false');
@@ -58,6 +97,22 @@ window.Modal = (function () {
     bodyEl.parentElement.scrollTop = 0;
     if (window.Subgraph) Subgraph.render(pageId);
     if (window.Edit) Edit.updateForPage(page);
+    if (!page.body_html) {
+      const openedFor = pageId;
+      ensureBody(page).then(html => {
+        // Only fill if still viewing this page.
+        if (document.body.dataset.modal === 'open' &&
+            (window.location.hash === '#page=' + encodeURIComponent(openedFor) ||
+             titleEl.textContent === (page.title || pageId))) {
+          bodyEl.innerHTML = html || '<p style="opacity:.7">(empty)</p>';
+        }
+      }).catch(err => {
+        console.warn('body shard load failed', err);
+        if (document.body.dataset.modal === 'open') {
+          bodyEl.innerHTML = '<p style="opacity:.7">Failed to load page body.</p>';
+        }
+      });
+    }
     return true;
   }
 

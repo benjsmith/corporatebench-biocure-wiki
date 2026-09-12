@@ -6,7 +6,7 @@
   loading.id = 'ce-loading';
   loading.setAttribute('role', 'status');
   loading.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(10,10,12,.92);color:#e8e8ea;font:500 15px/1.45 system-ui,sans-serif;padding:24px;text-align:center';
-  loading.innerHTML = '<div><div style="font-size:16px;margin-bottom:8px">Loading Biocure wiki…</div><div style="opacity:.7;font-size:13px">Downloading and decompressing ~14&nbsp;MB (expands to ~116&nbsp;MB). First open can take 15–60&nbsp;s.</div></div>';
+  loading.innerHTML = '<div><div style="font-size:16px;margin-bottom:8px">Loading Biocure wiki…</div><div style="opacity:.7;font-size:13px">Downloading atlas index (~3&nbsp;MB compressed). Page bodies load on demand.</div></div>';
   document.body.appendChild(loading);
   function setLoading(msg) {
     const el = loading.querySelector('div div:last-child');
