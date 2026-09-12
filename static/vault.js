@@ -121,18 +121,30 @@ window.VaultSources = (function () {
       '</main></body></html>';
   }
 
-  function openInTab(filename, text) {
+  function openInTab(filename, text, tab) {
     var html = viewerHtml(filename, text);
     var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     var url = URL.createObjectURL(blob);
-    var w = window.open(url, '_blank', 'noopener,noreferrer');
-    if (!w) {
-      // Popup blocked — fall back to same-tab navigation
-      window.location.assign(url);
+    // Prefer writing into a tab opened synchronously on click (async
+    // window.open is blocked and used to fall back to same-tab).
+    if (tab && !tab.closed) {
+      try {
+        tab.location.replace(url);
+        tab.focus();
+      } catch (err) {
+        try { tab.close(); } catch (e) {}
+        tab = window.open(url, '_blank');
+      }
+    } else {
+      tab = window.open(url, '_blank');
+    }
+    if (!tab) {
+      // Do NOT navigate this tab away from the atlas.
+      alert('Could not open a new tab (popup blocked). Allow popups for this site, then try again.');
+      URL.revokeObjectURL(url);
       return;
     }
-    // Revoke later so the tab can finish loading
-    setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 120000);
   }
 
   function setBusy(el, busy, label) {
@@ -162,6 +174,19 @@ window.VaultSources = (function () {
       alert('Vault viewer failed to load (JSZip missing).');
       return Promise.resolve(false);
     }
+    // Open the tab in the same tick as the click so Safari/Chrome do not
+    // treat it as a blocked popup (fetch/JSZip are async).
+    var tab = window.open('about:blank', '_blank');
+    if (tab) {
+      try {
+        tab.document.write(
+          '<!doctype html><title>Loading vault source…</title>' +
+          '<body style="margin:0;background:#101014;color:#9a9aa8;' +
+          'font:14px system-ui,sans-serif;padding:24px">Loading vault source…</body>'
+        );
+        tab.document.close();
+      } catch (e) {}
+    }
     setBusy(triggerEl, true, 'Loading…');
     return loadManifest()
       .then(function (man) {
@@ -175,12 +200,15 @@ window.VaultSources = (function () {
       })
       .then(function (text) {
         setBusy(triggerEl, false);
-        openInTab(filename, text);
+        openInTab(filename, text, tab);
         return true;
       })
       .catch(function (err) {
         console.warn('VaultSources.open failed', err);
         setBusy(triggerEl, false);
+        if (tab && !tab.closed) {
+          try { tab.close(); } catch (e) {}
+        }
         alert('Could not open vault source:\n' + (err && err.message ? err.message : err));
         return false;
       });
