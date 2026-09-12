@@ -41,6 +41,26 @@
     var typePanel = document.getElementById('label-types-panel');
     var settingsButton = document.getElementById('settings-trigger');
     var settingsPanel = document.getElementById('settings-panel');
+    var helpButton = document.getElementById('help-trigger');
+    var helpPanel = document.getElementById('help-panel');
+
+    function setExpanded(btn, open) {
+      if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    function closePanel(panel, btn) {
+      if (panel && !panel.classList.contains('hidden')) {
+        panel.classList.add('hidden');
+        setExpanded(btn, false);
+      }
+    }
+    function togglePanel(panel, btn, otherPanel, otherBtn) {
+      if (!panel || !btn) return;
+      var willOpen = panel.classList.contains('hidden');
+      closePanel(otherPanel, otherBtn);
+      if (typePanel && panel !== typePanel) typePanel.classList.add('hidden');
+      panel.classList.toggle('hidden', !willOpen);
+      setExpanded(btn, willOpen);
+    }
 
     function paintLabels() {
       if (modeState) modeState.textContent = mode;
@@ -72,6 +92,8 @@
       });
       typeButton.addEventListener('click', function (ev) {
         ev.stopPropagation();
+        closePanel(settingsPanel, settingsButton);
+        closePanel(helpPanel, helpButton);
         typePanel.classList.toggle('hidden');
       });
       var typeReset = document.getElementById('label-types-reset');
@@ -89,7 +111,7 @@
     if (settingsPanel && settingsButton) {
       settingsButton.addEventListener('click', function (ev) {
         ev.stopPropagation();
-        settingsPanel.classList.toggle('hidden');
+        togglePanel(settingsPanel, settingsButton, helpPanel, helpButton);
       });
       function bind(inputId, valueId, key) {
         var input = document.getElementById(inputId);
@@ -118,6 +140,13 @@
       });
     }
 
+    if (helpPanel && helpButton) {
+      helpButton.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        togglePanel(helpPanel, helpButton, settingsPanel, settingsButton);
+      });
+    }
+
     document.addEventListener('click', function (ev) {
       if (typePanel && !typePanel.classList.contains('hidden') &&
           !typePanel.contains(ev.target) && (!typeButton || !typeButton.contains(ev.target))) {
@@ -125,8 +154,18 @@
       }
       if (settingsPanel && !settingsPanel.classList.contains('hidden') &&
           !settingsPanel.contains(ev.target) && (!settingsButton || !settingsButton.contains(ev.target))) {
-        settingsPanel.classList.add('hidden');
+        closePanel(settingsPanel, settingsButton);
       }
+      if (helpPanel && !helpPanel.classList.contains('hidden') &&
+          !helpPanel.contains(ev.target) && (!helpButton || !helpButton.contains(ev.target))) {
+        closePanel(helpPanel, helpButton);
+      }
+    });
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'Escape') return;
+      closePanel(settingsPanel, settingsButton);
+      closePanel(helpPanel, helpButton);
+      if (typePanel) typePanel.classList.add('hidden');
     });
     paintLabels();
     return { setMode: setMode, cycleMode: cycleMode };
