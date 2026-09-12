@@ -30,7 +30,7 @@ On the live site: [Downloads](https://benjsmith.github.io/corporatebench-biocure
 ## Notes
 
 - Edit / vault-upload buttons need a local `viewer.sh` server; they are inactive on GitHub Pages.
-- Atlas index is ultra-slim `data.json.gz` (~0.8 MB gz / ~8 MB inflate: all node titles + 2k sampled edges; no page bodies). Full HTML is in `bodies/NN.json.gz` shards loaded when you open a page.
+- Atlas index is ultra-slim `data.json.gz` (nodes only). - WikiLinks: full `edges.json.gz` (~1.2 MB) loads the first time you zoom in past ~0.5×; zoomed-out Atlas stays edge-free for clarity. Full HTML is in `bodies/NN.json.gz` shards loaded when you open a page.
 
 ## License
 

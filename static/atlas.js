@@ -246,7 +246,7 @@
           budget: {
             maxNodes: Math.max(1, corpusSize),
             maxAggregates: 0,
-            maxEdges: Math.max(900, (atlasData.edges || []).length),
+            maxEdges: 200000,  /* full WikiLink set; drawn only when zoomed in */
             maxBundles: 0,
             maxLabels: 60,
           },
@@ -262,6 +262,60 @@
       return null;
     }
     var controls = initAtlasControls(handle);
+
+    /* Zoom-triggered full edge load (Pages). data.json.gz ships nodes only;
+     * edges.json.gz (~1.2MB) is fetched the first time camera scale passes
+     * __ceAtlasEdgeMinScale, then injected into the live graph. Drawing is
+     * also gated on that scale in knowledge-atlas.js so zoomed-out stays clean. */
+    (function setupZoomEdges() {
+      var EDGE_URL = (data && data.edges_url) || 'edges.json.gz';
+      var minScale = window.__ceAtlasEdgeMinScale = window.__ceAtlasEdgeMinScale || 0.5;
+      var state = { inflight: false, injected: false };
+      var engine = handle.engine;
+
+      async function gunzipJson(url) {
+        var res = await fetch(url);
+        if (!res.ok) throw new Error(url + ' HTTP ' + res.status);
+        var buf = await res.arrayBuffer();
+        var bytes = new Uint8Array(buf);
+        var isGzip = bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+        var text;
+        if (isGzip) {
+          if (!window.DecompressionStream) throw new Error('DecompressionStream unavailable');
+          var stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'));
+          text = await new Response(stream).text();
+        } else {
+          text = new TextDecoder().decode(bytes);
+        }
+        return JSON.parse(text);
+      }
+
+      async function injectEdges() {
+        if (state.injected || state.inflight) return;
+        state.inflight = true;
+        try {
+          var edges = await gunzipJson(EDGE_URL);
+          var graph = engine && engine.source && engine.source.graph;
+          if (!graph || !graph.addEdge) throw new Error('atlas graph unavailable');
+          for (var i = 0; i < edges.length; i++) {
+            var e = edges[i];
+            graph.addEdge(e.source, e.target, e.type || 'wikilink', e.confidence == null ? 1 : e.confidence);
+          }
+          state.injected = true;
+          if (typeof engine.requestScene === 'function') engine.requestScene();
+          console.info('Atlas edges loaded:', edges.length);
+        } catch (err) {
+          console.warn('Atlas edge load failed', err);
+        } finally {
+          state.inflight = false;
+        }
+      }
+
+      window.__ceAtlasOnScale = function (scale) {
+        if (typeof controls.setScaleHint === 'function') controls.setScaleHint(scale);
+        if (scale >= minScale) injectEdges();
+      };
+    })();
 
     return {
       focus: function (pageId) {
