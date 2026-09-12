@@ -47,8 +47,30 @@ window.Modal = (function () {
     return html;
   }
 
+  let nodeById = Object.create(null);
+
+  function resolvePage(pageId) {
+    let page = pages[pageId];
+    if (page && page.title) return page;
+    const n = nodeById[pageId] || {};
+    const stub = page || {};
+    page = {
+      id: pageId,
+      title: n.title || stub.title || pageId,
+      type: n.type || stub.type || 'unclassified',
+      path: n.path || stub.path || (pageId + '.md'),
+      properties: stub.properties || {},
+      body_html: stub.body_html || '',
+      body_shard: stub.body_shard,
+    };
+    pages[pageId] = page;
+    return page;
+  }
+
   function init(data) {
     pages = data.pages || {};
+    nodeById = Object.create(null);
+    for (const n of (data.nodes || [])) nodeById[n.id] = n;
     modal = document.querySelector('#modal');
     backdrop = document.querySelector('#modal-backdrop');
     closeBtn = document.querySelector('#modal-close');
@@ -79,8 +101,8 @@ window.Modal = (function () {
   }
 
   function open(pageId) {
-    const page = pages[pageId];
-    if (!page) {
+    const page = resolvePage(pageId);
+    if (!page || (!nodeById[pageId] && !(pages[pageId] && pages[pageId].body_shard))) {
       console.warn('Modal: unknown page', pageId);
       return false;
     }

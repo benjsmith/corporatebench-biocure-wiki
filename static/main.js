@@ -56,41 +56,6 @@
     data = await loadWikiData();
     setLoading('Parsed ' + ((data.nodes && data.nodes.length) || 0).toLocaleString() +
       ' pages. Building sidebar + atlas…');
-    /* Pages bundle ships pages as {id: {body_shard}} only. Fill titles/types
-     * from nodes so Modal/Atlas keep working without a second 10MB of JSON. */
-    if (data.pages && data.nodes) {
-      const byId = Object.create(null);
-      for (const n of data.nodes) byId[n.id] = n;
-      const hydrated = Object.create(null);
-      for (const n of data.nodes) {
-        const stub = data.pages[n.id] || {};
-        hydrated[n.id] = {
-          id: n.id,
-          title: n.title || n.id,
-          type: n.type,
-          path: n.path || (n.id + '.md'),
-          properties: {},
-          body_html: '',
-          body_shard: stub.body_shard,
-        };
-      }
-      // keep any page keys not in nodes (shouldn't happen)
-      for (const id of Object.keys(data.pages)) {
-        if (!hydrated[id]) {
-          const stub = data.pages[id];
-          hydrated[id] = {
-            id: id,
-            title: id,
-            type: 'unclassified',
-            path: id + '.md',
-            properties: {},
-            body_html: '',
-            body_shard: stub && stub.body_shard,
-          };
-        }
-      }
-      data.pages = hydrated;
-    }
   } catch (e) {
     clearLoading();
     document.body.innerHTML =
@@ -107,28 +72,30 @@
   Sidebar.init(data);
   Subgraph.init(data);
   Modal.init(data);
-  /* Knowledge Atlas is an opt-in for large wikis. When selected it
-   * takes over the #graph pane and returns a Graph-compatible facade;
-   * every other module is untouched. static/atlas.js owns eligibility,
-   * persistence and the host-level viewer chooser. */
-  let graphApi = Graph;
-  let viewerMode = 'classic';
-  if (window.AtlasViewer && AtlasViewer.enabled(data) && window.KnowledgeAtlas) {
-    const atlas = AtlasViewer.init(data);
-    if (atlas) {
-      graphApi = atlas;
-      viewerMode = 'atlas';
-    }
-    else Graph.init(data);
-  } else {
-    Graph.init(data);
-  }
-  document.body.dataset.viewer = viewerMode;
-  if (window.AtlasViewer && AtlasViewer.initChoice) {
-    AtlasViewer.initChoice(data, viewerMode);
-  }
   clearLoading();
   _maybeShowScanStaleBanner(data);
+
+  /* Defer Atlas so sidebar paints first; mount a capped subset only. */
+  let graphApi = Graph;
+  let viewerMode = 'classic';
+  const startGraph = () => {
+    if (window.AtlasViewer && AtlasViewer.enabled(data) && window.KnowledgeAtlas) {
+      const atlas = AtlasViewer.init(data);
+      if (atlas) {
+        graphApi = atlas;
+        viewerMode = 'atlas';
+      } else {
+        Graph.init(data);
+      }
+    } else {
+      Graph.init(data);
+    }
+    document.body.dataset.viewer = viewerMode;
+    if (window.AtlasViewer && AtlasViewer.initChoice) {
+      AtlasViewer.initChoice(data, viewerMode);
+    }
+  };
+  requestAnimationFrame(() => setTimeout(startGraph, 0));
 
   /* refetchData — called after the Edit module saves a page. Pulls a
    * fresh data.json (the server rebuilds the bundle on every write)

@@ -205,23 +205,59 @@
     container.innerHTML = '';
 
     var corpusSize = pageCount(data);
+    /* Pages / low-memory hosts: never feed the full 39k-node corpus into
+     * KnowledgeAtlas — that OOMs Chrome. Sidebar still uses full `data`. */
+    var ATLAS_NODE_CAP = 3000;
+    var atlasData = data;
+    if ((data.nodes || []).length > ATLAS_NODE_CAP) {
+      var ranked = data.nodes.slice().sort(function (a, b) {
+        return (b.degree || 0) - (a.degree || 0);
+      });
+      var keep = ranked.slice(0, ATLAS_NODE_CAP);
+      var keepIds = {};
+      for (var i = 0; i < keep.length; i++) keepIds[keep[i].id] = true;
+      var pages = {};
+      for (var j = 0; j < keep.length; j++) {
+        var n = keep[j];
+        var stub = (data.pages && data.pages[n.id]) || {};
+        pages[n.id] = {
+          id: n.id,
+          title: n.title || n.id,
+          type: n.type,
+          path: n.path || (n.id + '.md'),
+          properties: {},
+          body_html: '',
+          body_shard: stub.body_shard,
+        };
+      }
+      var edges = (data.edges || []).filter(function (e) {
+        return keepIds[e.source] && keepIds[e.target];
+      });
+      atlasData = {
+        workspace: data.workspace,
+        generated_at: data.generated_at,
+        palette: data.palette,
+        nodes: keep,
+        edges: edges,
+        pages: pages,
+      };
+    }
+
     var handle = window.KnowledgeAtlas.mount(container, {
-      data: data,
-      // Hybrid: Classic field in the core, log-compressed individual
-      // nodes on the rim. corpusSize makes the first frame that view
-      // (not type-cluster bubbles). Pin capacity to this corpus so
-      // first mount, remount, and viewport changes all render the
-      // same individual-node scene. The rate HUD is drawn at the TOP
-      // of the canvas (`fillText` y = -height/2+22).
+      data: atlasData,
+      // Bounded hybrid scene for static hosting. corpusSize stays full so
+      // the HUD reflects the real wiki; visible/core caps stay small.
       config: {
         layout: 'hybrid',
         corpusSize: corpusSize,
-        coreCapacity: Math.max(1, corpusSize),
-        maxVisibleNodes: Math.max(1, corpusSize),
+        coreCapacity: Math.min(2500, atlasData.nodes.length),
+        maxVisibleNodes: Math.min(3000, atlasData.nodes.length),
         budget: {
-          maxNodes: Math.max(1, corpusSize),
-          maxAggregates: 0,
-          maxEdges: Math.max(900, (data.edges || []).length),
+          maxNodes: Math.min(3000, atlasData.nodes.length),
+          maxAggregates: 40,
+          maxEdges: Math.min(2000, (atlasData.edges || []).length || 0),
+          maxBundles: 24,
+          maxLabels: 60,
         },
       },
       onOpenItem: function (id) {
