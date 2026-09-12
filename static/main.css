@@ -438,6 +438,11 @@ body[data-sidebar="collapsed"] .sidebar-restore { display: inline-flex; }
   background: var(--bg-elev);
 }
 
+/* physics gear hidden at full-corpus scale — force params fixed in atlas.js */
+.settings-trigger,
+.settings-panel {
+  display: none !important;
+}
 .settings-trigger {
   position: absolute;
   top: 12px;
@@ -455,7 +460,7 @@ body[data-sidebar="collapsed"] .sidebar-restore { display: inline-flex; }
 .help-trigger {
   position: absolute;
   top: 12px;
-  right: 48px;
+  right: 14px;
   z-index: 12;
   background: var(--bg-soft);
   border: 1px solid var(--line);

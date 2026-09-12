@@ -21,7 +21,7 @@
   var MIN_ATLAS_PAGES = 360;
   var LABEL_TYPES_KEY = 'curiosity-engine.label-types';
   var LABEL_DEFAULTS = ['concept', 'entity', 'note', 'todo'];
-  var PHYSICS_DEFAULTS = { charge: -420, link: 110, collide: 10 };
+  var PHYSICS_DEFAULTS = { charge: -1000, link: 220, collide: 28 };
 
   function readLabelTypes() {
     try {
@@ -467,6 +467,13 @@
           corpusSize: corpusSize,
           coreCapacity: Math.max(1, corpusSize),
           maxVisibleNodes: Math.max(1, corpusSize),
+          /* Roomier than CE defaults: sliders were unresponsive at ~40k nodes,
+             so physics is fixed here and the gear UI is hidden. */
+          physics: {
+            charge: PHYSICS_DEFAULTS.charge,
+            link: PHYSICS_DEFAULTS.link,
+            collide: PHYSICS_DEFAULTS.collide,
+          },
           budget: {
             maxNodes: Math.max(1, corpusSize),
             maxAggregates: 0,
