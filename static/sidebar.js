@@ -77,10 +77,22 @@ window.Sidebar = (function () {
     });
 
     // Restore collapsed state from localStorage so it survives reloads.
+    // Large wikis: default ALL types collapsed and lazy-render bodies so we
+    // do not inject tens of thousands of DOM nodes on first paint (Pages).
+    let hasStoredCollapse = false;
     try {
-      const stored = JSON.parse(localStorage.getItem('curiosity-engine.collapsed-types') || '[]');
+      const raw = localStorage.getItem('curiosity-engine.collapsed-types');
+      hasStoredCollapse = raw !== null;
+      const stored = JSON.parse(raw || '[]');
       collapsed = new Set(stored);
     } catch (e) { collapsed = new Set(); }
+    const LARGE = allRecords.length > 2000;
+    if (LARGE && !hasStoredCollapse) {
+      collapsed = new Set(allRecords.map(r => canonicalType(r.type)));
+      try {
+        localStorage.setItem('curiosity-engine.collapsed-types', JSON.stringify([...collapsed]));
+      } catch (e) {}
+    }
 
     renderGrouped();
 
@@ -136,6 +148,8 @@ window.Sidebar = (function () {
         a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
       const isCollapsed = collapsed.has(t);
       const label = TYPE_LABEL[t] || (t.charAt(0).toUpperCase() + t.slice(1));
+      // Lazy: skip row HTML while collapsed (expand fills on toggle).
+      const body = isCollapsed ? '' : recs.map(rowHtml).join('');
       return `<section class="type-group" data-type="${escapeAttr(t)}" data-collapsed="${isCollapsed ? 'true' : 'false'}">
         <button class="type-group-header" data-action="toggle-group" data-type="${escapeAttr(t)}">
           <span class="group-chev"><svg viewBox="0 0 10 10" width="10" height="10"><path d="M2 4 L5 7 L8 4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
@@ -143,7 +157,7 @@ window.Sidebar = (function () {
           <span class="type-group-name">${escapeHtml(label)}</span>
           <span class="type-group-count">${recs.length}</span>
         </button>
-        <div class="type-group-body">${recs.map(rowHtml).join('')}</div>
+        <div class="type-group-body">${body}</div>
       </section>`;
     }).join('');
     listEl.innerHTML = html;
@@ -202,7 +216,18 @@ window.Sidebar = (function () {
         localStorage.setItem('curiosity-engine.collapsed-types', JSON.stringify([...collapsed]));
       } catch (e) {}
       const group = header.closest('.type-group');
-      if (group) group.dataset.collapsed = collapsed.has(t) ? 'true' : 'false';
+      if (group) {
+        group.dataset.collapsed = collapsed.has(t) ? 'true' : 'false';
+        const body = group.querySelector('.type-group-body');
+        if (body && !collapsed.has(t) && !body.dataset.filled) {
+          const recs = allRecords
+            .filter(r => canonicalType(r.type) === t)
+            .slice()
+            .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
+          body.innerHTML = recs.map(rowHtml).join('');
+          body.dataset.filled = '1';
+        }
+      }
       return;
     }
     const row = ev.target.closest && ev.target.closest('.sidebar-row');

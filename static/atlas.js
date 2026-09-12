@@ -157,10 +157,12 @@
     if (explicit) return explicit === 'atlas';
     if (!eligible(data)) return false;
     try {
-      return localStorage.getItem(STORAGE_KEY) === 'atlas';
-    } catch (e) {
-      return false;
-    }
+      var stored = localStorage.getItem(STORAGE_KEY);
+      if (stored === 'classic') return false;
+      if (stored === 'atlas') return true;
+    } catch (e) {}
+    /* Large wikis: default Atlas. Classic D3 force on ~40k nodes hangs. */
+    return true;
   }
 
   /* The selector is host chrome rather than engine chrome. It appears

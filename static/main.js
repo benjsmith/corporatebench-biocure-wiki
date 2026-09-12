@@ -2,6 +2,20 @@
  * Hash format:  #page=<page-id>  → opens that page in the modal.
  */
 (async function () {
+  const loading = document.createElement('div');
+  loading.id = 'ce-loading';
+  loading.setAttribute('role', 'status');
+  loading.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(10,10,12,.92);color:#e8e8ea;font:500 15px/1.45 system-ui,sans-serif;padding:24px;text-align:center';
+  loading.innerHTML = '<div><div style="font-size:16px;margin-bottom:8px">Loading Biocure wiki…</div><div style="opacity:.7;font-size:13px">Downloading and decompressing ~14&nbsp;MB (expands to ~116&nbsp;MB). First open can take 15–60&nbsp;s.</div></div>';
+  document.body.appendChild(loading);
+  function setLoading(msg) {
+    const el = loading.querySelector('div div:last-child');
+    if (el) el.innerHTML = msg;
+  }
+  function clearLoading() {
+    if (loading && loading.parentNode) loading.parentNode.removeChild(loading);
+  }
+
   async function loadWikiData() {
     /* Prefer gzipped bundle on static hosts (GitHub Pages soft/hard
      * file limits); fall back to plain data.json for local viewer. */
@@ -12,12 +26,21 @@
         const res = await fetch(url);
         if (!res.ok) throw new Error(url + ' HTTP ' + res.status);
         if (url.endsWith('.gz')) {
-          if (!window.DecompressionStream) {
-            throw new Error('DecompressionStream unavailable for ' + url);
+          const buf = await res.arrayBuffer();
+          const bytes = new Uint8Array(buf);
+          // Gzip magic 1f 8b — otherwise CDN/browser already decoded.
+          const isGzip = bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+          let text;
+          if (isGzip) {
+            if (!window.DecompressionStream) {
+              throw new Error('DecompressionStream unavailable for ' + url);
+            }
+            const ds = new DecompressionStream('gzip');
+            const stream = new Blob([buf]).stream().pipeThrough(ds);
+            text = await new Response(stream).text();
+          } else {
+            text = new TextDecoder().decode(bytes);
           }
-          const ds = new DecompressionStream('gzip');
-          const stream = res.body.pipeThrough(ds);
-          const text = await new Response(stream).text();
           return JSON.parse(text);
         }
         return await res.json();
@@ -29,12 +52,17 @@
   }
   let data = null;
   try {
+    setLoading('Fetching <code>data.json.gz</code>…');
     data = await loadWikiData();
+    setLoading('Parsed ' + ((data.nodes && data.nodes.length) || 0).toLocaleString() +
+      ' pages. Building sidebar + atlas…');
   } catch (e) {
+    clearLoading();
     document.body.innerHTML =
-      '<div style="padding:40px;font-family:system-ui">' +
-      'Failed to load <code>data.json.gz</code> / <code>data.json</code>. Re-run ' +
-      '<code>bash &lt;skill_path&gt;/scripts/viewer.sh build</code>.' +
+      '<div style="padding:40px;font-family:system-ui;color:#eee;background:#111;min-height:100vh">' +
+      '<h1 style="font-size:18px">Failed to load wiki data</h1>' +
+      '<p>Could not load <code>data.json.gz</code> / <code>data.json</code>.</p>' +
+      '<pre style="white-space:pre-wrap;opacity:.85">' + String(e && e.message || e) + '</pre>' +
       '</div>';
     console.error(e);
     return;
@@ -64,6 +92,7 @@
   if (window.AtlasViewer && AtlasViewer.initChoice) {
     AtlasViewer.initChoice(data, viewerMode);
   }
+  clearLoading();
   _maybeShowScanStaleBanner(data);
 
   /* refetchData — called after the Edit module saves a page. Pulls a
