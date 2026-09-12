@@ -122,7 +122,7 @@
     <div id="help-panel" class="help-panel hidden" role="dialog" aria-label="About this page">
       <div class="settings-head">About</div>
       <p class="help-lead">This is the <a href="https://github.com/benjsmith/curiosity-engine" target="_blank" rel="noopener noreferrer">Curiosity Engine</a> atlas viewer over a Curiosity Engine–curated wiki.</p>
-      <p>The wiki’s source files are from <a href="https://huggingface.co/datasets/epiq-ai-labs/corporatebench" target="_blank" rel="noopener noreferrer">CorporateBench</a>: a ~26k-page simulated company document corpus (Biocure tranche).</p>
+      <p>CE <code>source</code> pages are short stubs; click a vault cite (or <em>Open full vault source</em>) to load the extracted document from a zip shard in a new tab. The wiki’s source files are from <a href="https://huggingface.co/datasets/epiq-ai-labs/corporatebench" target="_blank" rel="noopener noreferrer">CorporateBench</a>: a ~26k-page simulated company document corpus (Biocure tranche).</p>
       <ul class="help-links">
         <li><a href="https://github.com/benjsmith/curiosity-engine" target="_blank" rel="noopener noreferrer">Curiosity Engine</a> — curator that built this wiki</li>
         <li><a href="https://github.com/benjsmith/corporatebench-biocure-wiki" target="_blank" rel="noopener noreferrer">This wiki package</a> — GitHub repo + Releases</li>
@@ -172,9 +172,11 @@
 
   <script src="static/vendor/d3.min.js"></script>
   <script src="static/vendor/fuse.min.js"></script>
+  <script src="static/vendor/jszip.min.js"></script>
   <script src="static/theme.js"></script>
   <script src="static/sidebar.js"></script>
   <script src="static/subgraph.js"></script>
+  <script src="static/vault.js"></script>
   <script src="static/modal.js"></script>
   <script src="static/edit.js"></script>
   <script src="static/graph.js"></script>
