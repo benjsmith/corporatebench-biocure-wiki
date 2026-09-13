@@ -75,29 +75,63 @@
   clearLoading();
   _maybeShowScanStaleBanner(data);
 
-  /* Defer Atlas so sidebar paints first; mount a capped subset only. */
+  /* Resolve viewer + paint view: chooser BEFORE any Graph/Atlas mount.
+   * Policy (AtlasViewer): >1000 nodes → Atlas only (no Classic, no
+   * chooser). ≤1000 → Classic available. Never call Graph.init on a
+   * large corpus — it hangs the main thread. */
   let graphApi = Graph;
-  let viewerMode = 'classic';
+  const wantAtlas = !!(window.AtlasViewer && AtlasViewer.enabled(data) && window.KnowledgeAtlas);
+  const classicOk = !(window.AtlasViewer && typeof AtlasViewer.classicSafe === 'function')
+    || AtlasViewer.classicSafe(data);
+  let viewerMode = wantAtlas ? 'atlas' : 'classic';
+  /* Safety net: if AtlasViewer says Atlas-only, never stay on classic. */
+  if (!classicOk && window.KnowledgeAtlas && window.AtlasViewer) {
+    viewerMode = 'atlas';
+  }
+  document.body.dataset.viewer = viewerMode;
+  if (window.AtlasViewer && AtlasViewer.initChoice) {
+    AtlasViewer.initChoice(data, viewerMode);
+  }
+
   const startGraph = () => {
     try {
-      if (window.AtlasViewer && AtlasViewer.enabled(data) && window.KnowledgeAtlas) {
+      if (viewerMode === 'atlas' && window.AtlasViewer && window.KnowledgeAtlas) {
         const atlas = AtlasViewer.init(data);
         if (atlas) {
           graphApi = atlas;
-          viewerMode = 'atlas';
-        } else {
-          Graph.init(data);
+          return;
         }
-      } else {
+        /* Atlas mount failed: only fall back to Classic when safe. */
+        if (classicOk) {
+          Graph.init(data);
+          viewerMode = 'classic';
+          document.body.dataset.viewer = viewerMode;
+        } else {
+          const el = document.getElementById('graph');
+          if (el) {
+            el.innerHTML =
+              '<div style="padding:28px;color:#ccc;font:14px system-ui">' +
+              'Atlas failed to start. Classic is disabled for wikis over 1000 pages.</div>';
+          }
+        }
+        return;
+      }
+      if (classicOk) {
         Graph.init(data);
+      } else {
+        /* Should be unreachable (atlasEnabled forces Atlas), but never hang. */
+        const el = document.getElementById('graph');
+        if (el) {
+          el.innerHTML =
+            '<div style="padding:28px;color:#ccc;font:14px system-ui">' +
+            'Classic is disabled for wikis over 1000 pages. Reload with Atlas.</div>';
+        }
       }
     } catch (err) {
       console.error('graph start failed', err);
-      try { Graph.init(data); } catch (e2) { console.error(e2); }
-    }
-    document.body.dataset.viewer = viewerMode;
-    if (window.AtlasViewer && AtlasViewer.initChoice) {
-      AtlasViewer.initChoice(data, viewerMode);
+      if (classicOk) {
+        try { Graph.init(data); } catch (e2) { console.error(e2); }
+      }
     }
   };
   requestAnimationFrame(() => setTimeout(startGraph, 0));

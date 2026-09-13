@@ -6,9 +6,10 @@
  * sidebar, modal, subgraph navigator, editing — keeps working: the
  * atlas routes item-open through the same `#page=<id>` hash contract.
  *
- * Wikis above 360 pages get a Classic / Atlas chooser in the graph
- * controls. Classic remains the default until the user opts in. The
- * preference is stored in localStorage, but is ignored for small wikis.
+ * Wikis with ≤1000 pages may switch Classic ↔ Atlas via the view:
+ * control (preference in localStorage). Wikis with >1000 pages are
+ * Atlas-only: Classic is never mounted (it hangs), and the chooser is
+ * hidden. A leftover classic preference is cleared on large wikis.
  *
  * Explicit per-load override (also useful for development and tests):
  *   http://localhost:8090/?viewer=atlas
@@ -209,6 +210,15 @@
     return data && Array.isArray(data.nodes) ? data.nodes.length : 0;
   }
 
+  /* Hard policy: Classic D3 force hangs above ~1k nodes (sync SVG +
+   * pre-warm ticks). Wikis with MORE than 1000 pages are Atlas-only —
+   * never Graph.init, never offer the view: chooser. */
+  var CLASSIC_MAX_PAGES = 1000;
+
+  function classicSafe(data) {
+    return pageCount(data) <= CLASSIC_MAX_PAGES;
+  }
+
   function eligible(data) {
     return pageCount(data) > MIN_ATLAS_PAGES;
   }
@@ -222,27 +232,43 @@
     }
   }
 
+  function clearClassicPreference() {
+    try {
+      if (localStorage.getItem(STORAGE_KEY) === 'classic') {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    } catch (e) {}
+  }
+
   function atlasEnabled(data) {
+    /* >1000 nodes: Atlas only. Ignore classic localStorage / ?viewer=classic. */
+    if (!classicSafe(data)) {
+      clearClassicPreference();
+      return true;
+    }
     var explicit = queryChoice();
     if (explicit) return explicit === 'atlas';
-    if (!eligible(data)) return false;
     try {
       var stored = localStorage.getItem(STORAGE_KEY);
       if (stored === 'classic') return false;
       if (stored === 'atlas') return true;
     } catch (e) {}
-    /* Large wikis: default Atlas. Classic D3 force on ~40k nodes hangs. */
-    return true;
+    /* ≤1000: Classic remains the default until the user opts into Atlas. */
+    return false;
   }
 
-  /* The selector is host chrome rather than engine chrome. It appears
-   * only when Atlas's bounded-scene model adds value. Changing mode is
-   * deliberately a reload: it leaves the classic graph lifecycle and
-   * Atlas canvas teardown independent and keeps hash routing intact. */
+  /* view: chooser only when Classic is still a safe option (≤1000).
+   * Larger wikis stay on Atlas with no switcher. Changing mode is a
+   * reload so Classic and Atlas lifecycles stay independent. */
   function initChoice(data, activeMode) {
     var button = document.getElementById('viewer-mode');
     var state = document.getElementById('viewer-mode-state');
-    if (!button || !state || !eligible(data)) return;
+    if (!button || !state || !window.KnowledgeAtlas) return;
+
+    if (!classicSafe(data)) {
+      button.classList.add('hidden');
+      return;
+    }
 
     state.textContent = activeMode;
     button.title = activeMode === 'atlas'
@@ -547,8 +573,10 @@
 
   window.AtlasViewer = {
     minPages: MIN_ATLAS_PAGES,
+    classicMaxPages: CLASSIC_MAX_PAGES,
     pageCount: pageCount,
     eligible: eligible,
+    classicSafe: classicSafe,
     enabled: atlasEnabled,
     initChoice: initChoice,
     init: init,
