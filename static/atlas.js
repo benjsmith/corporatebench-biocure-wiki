@@ -33,9 +33,12 @@
 
   function initAtlasControls(handle) {
     var mode = 'auto';
+    var edgeMode = 'auto';
     var types = readLabelTypes();
     var modeButton = document.getElementById('label-mode');
     var modeState = document.getElementById('label-mode-state');
+    var edgeButton = document.getElementById('edge-mode');
+    var edgeState = document.getElementById('edge-mode-state');
     var typeButton = document.getElementById('label-types');
     var typeState = document.getElementById('label-types-state');
     var typePanel = document.getElementById('label-types-panel');
@@ -43,6 +46,7 @@
     var settingsPanel = document.getElementById('settings-panel');
     var helpButton = document.getElementById('help-trigger');
     var helpPanel = document.getElementById('help-panel');
+    if (edgeButton) edgeButton.classList.remove('hidden');
 
     function setExpanded(btn, open) {
       if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -67,6 +71,16 @@
       if (typeState) typeState.textContent = types.size + '/12';
       handle.setLabels(mode, Array.from(types));
     }
+    function paintEdges() {
+      if (edgeState) edgeState.textContent = edgeMode;
+      if (handle.setEdges) handle.setEdges(edgeMode);
+    }
+    // setLabels / setEdges re-render the resident scene (no rebuild, no
+    // layout churn) — the cheapest repaint the engine API exposes.
+    function repaint() {
+      paintLabels();
+      paintEdges();
+    }
     function setMode(next) {
       mode = next;
       document.documentElement.dataset.labels = mode;
@@ -76,7 +90,17 @@
       var order = ['auto', 'on', 'off'];
       setMode(order[(order.indexOf(mode) + 1) % order.length]);
     }
+    function setEdgeMode(next) {
+      edgeMode = next;
+      document.documentElement.dataset.edges = edgeMode;
+      paintEdges();
+    }
+    function cycleEdgeMode() {
+      var order = ['auto', 'on', 'off'];
+      setEdgeMode(order[(order.indexOf(edgeMode) + 1) % order.length]);
+    }
     if (modeButton) modeButton.addEventListener('click', cycleMode);
+    if (edgeButton) edgeButton.addEventListener('click', cycleEdgeMode);
 
     if (typePanel && typeButton) {
       typePanel.querySelectorAll('.label-types-row').forEach(function (row) {
@@ -168,7 +192,14 @@
       if (typePanel) typePanel.classList.add('hidden');
     });
     paintLabels();
-    return { setMode: setMode, cycleMode: cycleMode };
+    paintEdges();
+    return {
+      setMode: setMode,
+      cycleMode: cycleMode,
+      setEdgeMode: setEdgeMode,
+      cycleEdgeMode: cycleEdgeMode,
+      repaint: repaint,
+    };
   }
 
   function pageCount(data) {
@@ -388,10 +419,9 @@
       'Loading WikiLinks + building force layout…</div>';
 
     var corpusSize = pageCount(data);
-    /* Edge strokes: previous sqrt(N/1000)≈6.3 was ABOVE camera max (ki=4),
-     * so edges never painted. Keep a mild zoom-out hide only; always on
-     * by the time you are moderately zoomed in (and at max zoom). */
-    window.__ceAtlasEdgeMinScale = 0.85;
+    /* Edge strokes: controlled by edgeMode (auto/on/off) — drawing only;
+     * edges stay in the force graph and link counts. Default auto is a
+     * sparse subset on large corpora (full draw when small). */
 
     var pages = {};
     var nodes = data.nodes || [];
@@ -431,6 +461,12 @@
       cycleLabelMode: function () {
         if (controls && controls.cycleMode) controls.cycleMode();
       },
+      setEdgeMode: function (mode) {
+        if (controls && controls.setEdgeMode) controls.setEdgeMode(mode);
+      },
+      cycleEdgeMode: function () {
+        if (controls && controls.cycleEdgeMode) controls.cycleEdgeMode();
+      },
       destroy: function () {
         if (handle) handle.destroy();
       },
@@ -462,6 +498,7 @@
       container.innerHTML = '';
       handle = window.KnowledgeAtlas.mount(container, {
         data: atlasData,
+        edgeMode: 'auto',
         config: {
           layout: 'hybrid',
           corpusSize: corpusSize,
@@ -497,7 +534,7 @@
       if (window.Sidebar && typeof Sidebar.updateCounts === 'function') {
         Sidebar.updateCounts(data);
       }
-      console.info('Atlas mounted with', edges.length, 'edges; stroke min scale', window.__ceAtlasEdgeMinScale);
+      console.info('Atlas mounted with', edges.length, 'edges; edgeMode auto');
     }).catch(function (err) {
       console.error('Atlas edge preload / mount failed', err);
       container.innerHTML =
