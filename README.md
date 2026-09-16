@@ -6,7 +6,7 @@ Interactive atlas / wiki viewer for the Biocure CorporateBench tranche curated w
 
 ## Live Atlas
 
-The GitHub Pages Atlas now serves **repair-v18** @ `091e75187` (non-stub enriched tip, QUERY wave7). Enriched sources — no mass stub titles.
+The GitHub Pages Atlas now serves **scrubbed repair-v18** @ `0401aa6d9` (harness leakage removed from analyses/hubs; no waveN/Eval-anchor/topic_qa in analyses). Tip SHA `0401aa6d9ac8864d2ee8e61bbfd9a88003dfadbb`.
 
 ## Downloads
 
@@ -29,10 +29,10 @@ On the live site: [Downloads](https://benjsmith.github.io/corporatebench-biocure
 
 ## Snapshot
 
-- **Wiki tip (live Atlas):** `repair-v18` @ `091e75187` (QUERY wave7 in-domain crystallise)
+- **Wiki tip (live Atlas):** scrubbed `repair-v18` @ `0401aa6d9` (no harness leakage)
 - **Pages:** ~27 197 · **WikiLinks:** ~12 258 edges
 - **Vault:** CorporateBench Biocure sources (static shards on Pages; full vault also in Release assets)
-- **Viewer lineage:** Pages static keeps Atlas-only >1k, edges mode pill, sticky selection (CE #11–#13)
+- **Viewer lineage:** Pages static keeps Atlas-only >1k, edges mode pill, sticky selection (CE #11–#13), mobile doc modal + portrait sidebar (`82d6e66`)
 
 ## Notes
 
