@@ -2,15 +2,67 @@
  * Hash format:  #page=<page-id>  → opens that page in the modal.
  */
 (async function () {
+  const loading = document.createElement('div');
+  loading.id = 'ce-loading';
+  loading.setAttribute('role', 'status');
+  loading.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(10,10,12,.92);color:#e8e8ea;font:500 15px/1.45 system-ui,sans-serif;padding:24px;text-align:center';
+  loading.innerHTML = '<div><div style="font-size:16px;margin-bottom:8px">Loading Biocure wiki…</div><div style="opacity:.7;font-size:13px">Downloading atlas index (~0.8&nbsp;MB compressed / ~8&nbsp;MB in memory). Page bodies load on demand.</div></div>';
+  document.body.appendChild(loading);
+  function setLoading(msg) {
+    const el = loading.querySelector('div div:last-child');
+    if (el) el.innerHTML = msg;
+  }
+  function clearLoading() {
+    if (loading && loading.parentNode) loading.parentNode.removeChild(loading);
+  }
+
+  async function loadWikiData() {
+    /* Prefer gzipped bundle on static hosts (GitHub Pages soft/hard
+     * file limits); fall back to plain data.json for local viewer. */
+    const tryUrls = ['data.json.gz', 'data.json'];
+    let lastErr = null;
+    for (const url of tryUrls) {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(url + ' HTTP ' + res.status);
+        if (url.endsWith('.gz')) {
+          const buf = await res.arrayBuffer();
+          const bytes = new Uint8Array(buf);
+          // Gzip magic 1f 8b — otherwise CDN/browser already decoded.
+          const isGzip = bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+          let text;
+          if (isGzip) {
+            if (!window.DecompressionStream) {
+              throw new Error('DecompressionStream unavailable for ' + url);
+            }
+            const ds = new DecompressionStream('gzip');
+            const stream = new Blob([buf]).stream().pipeThrough(ds);
+            text = await new Response(stream).text();
+          } else {
+            text = new TextDecoder().decode(bytes);
+          }
+          return JSON.parse(text);
+        }
+        return await res.json();
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    throw lastErr || new Error('no data bundle');
+  }
   let data = null;
   try {
-    const res = await fetch('data.json');
-    data = await res.json();
+    setLoading('Fetching <code>data.json.gz</code>…');
+    data = await loadWikiData();
+    setLoading('Parsed ' + ((data.nodes && data.nodes.length) || 0).toLocaleString() +
+      ' pages. Building sidebar + atlas…');
   } catch (e) {
+    clearLoading();
     document.body.innerHTML =
-      '<div style="padding:40px;font-family:system-ui">' +
-      'Failed to load <code>data.json</code>. Re-run ' +
-      '<code>bash &lt;skill_path&gt;/scripts/viewer.sh build</code>.' +
+      '<div style="padding:40px;font-family:system-ui;color:#eee;background:#111;min-height:100vh">' +
+      '<h1 style="font-size:18px">Failed to load wiki data</h1>' +
+      '<p>Could not load <code>data.json.gz</code> / <code>data.json</code>.</p>' +
+      '<pre style="white-space:pre-wrap;opacity:.85">' + String(e && e.message || e) + '</pre>' +
       '</div>';
     console.error(e);
     return;
@@ -20,15 +72,19 @@
   Sidebar.init(data);
   Subgraph.init(data);
   Modal.init(data);
+  clearLoading();
+  _maybeShowScanStaleBanner(data);
+
   /* Resolve viewer + paint view: chooser BEFORE any Graph/Atlas mount.
    * Policy (AtlasViewer): >1000 nodes → Atlas only (no Classic, no
-   * chooser). ≤1000 → Classic available / opt-in Atlas. Never call
-   * Graph.init on a large corpus — it hangs the main thread. */
+   * chooser). ≤1000 → Classic available. Never call Graph.init on a
+   * large corpus — it hangs the main thread. */
   let graphApi = Graph;
   const wantAtlas = !!(window.AtlasViewer && AtlasViewer.enabled(data) && window.KnowledgeAtlas);
   const classicOk = !(window.AtlasViewer && typeof AtlasViewer.classicSafe === 'function')
     || AtlasViewer.classicSafe(data);
   let viewerMode = wantAtlas ? 'atlas' : 'classic';
+  /* Safety net: if AtlasViewer says Atlas-only, never stay on classic. */
   if (!classicOk && window.KnowledgeAtlas && window.AtlasViewer) {
     viewerMode = 'atlas';
   }
@@ -36,36 +92,49 @@
   if (window.AtlasViewer && AtlasViewer.initChoice) {
     AtlasViewer.initChoice(data, viewerMode);
   }
-  if (viewerMode === 'atlas' && window.AtlasViewer && window.KnowledgeAtlas) {
-    const atlas = AtlasViewer.init(data);
-    if (atlas) {
-      graphApi = atlas;
-    } else if (classicOk) {
-      Graph.init(data);
-      viewerMode = 'classic';
-      document.body.dataset.viewer = viewerMode;
-    } else {
-      const el = document.getElementById('graph');
-      if (el) {
-        el.innerHTML =
-          '<div style="padding:28px;color:#ccc;font:14px system-ui">' +
-          'Atlas failed to start. Classic is disabled for wikis over 1000 pages.</div>';
+
+  const startGraph = () => {
+    try {
+      if (viewerMode === 'atlas' && window.AtlasViewer && window.KnowledgeAtlas) {
+        const atlas = AtlasViewer.init(data);
+        if (atlas) {
+          graphApi = atlas;
+          return;
+        }
+        /* Atlas mount failed: only fall back to Classic when safe. */
+        if (classicOk) {
+          Graph.init(data);
+          viewerMode = 'classic';
+          document.body.dataset.viewer = viewerMode;
+        } else {
+          const el = document.getElementById('graph');
+          if (el) {
+            el.innerHTML =
+              '<div style="padding:28px;color:#ccc;font:14px system-ui">' +
+              'Atlas failed to start. Classic is disabled for wikis over 1000 pages.</div>';
+          }
+        }
+        return;
+      }
+      if (classicOk) {
+        Graph.init(data);
+      } else {
+        /* Should be unreachable (atlasEnabled forces Atlas), but never hang. */
+        const el = document.getElementById('graph');
+        if (el) {
+          el.innerHTML =
+            '<div style="padding:28px;color:#ccc;font:14px system-ui">' +
+            'Classic is disabled for wikis over 1000 pages. Reload with Atlas.</div>';
+        }
+      }
+    } catch (err) {
+      console.error('graph start failed', err);
+      if (classicOk) {
+        try { Graph.init(data); } catch (e2) { console.error(e2); }
       }
     }
-  } else if (classicOk) {
-    Graph.init(data);
-  } else {
-    const el = document.getElementById('graph');
-    if (el) {
-      el.innerHTML =
-        '<div style="padding:28px;color:#ccc;font:14px system-ui">' +
-        'Classic is disabled for wikis over 1000 pages. Reload with Atlas.</div>';
-    }
-  }
-  /* Graph search marks the canvas and the page list together. Wired
-   * after the viewer so it talks to whichever one took the pane. */
-  if (window.GraphSearch) GraphSearch.init(data, graphApi);
-  _maybeShowScanStaleBanner(data);
+  };
+  requestAnimationFrame(() => setTimeout(startGraph, 0));
 
   /* refetchData — called after the Edit module saves a page. Pulls a
    * fresh data.json (the server rebuilds the bundle on every write)
@@ -73,16 +142,13 @@
    * is left alone so an in-flight save doesn't yank the camera. */
   async function refetchData(currentPageId) {
     try {
-      const res = await fetch('data.json?t=' + Date.now());
-      data = await res.json();
+      data = await loadWikiData();
     } catch (e) {
       console.warn('refetchData failed:', e);
       return;
     }
     if (Modal.refresh)    Modal.refresh(data);
     if (Subgraph.init)    Subgraph.init(data);   // re-binds neighbour map
-    // Keep the sidebar footer honest if page/edge counts moved.
-    if (Sidebar.updateCounts) Sidebar.updateCounts(data);
     if (currentPageId && Modal.open) {
       Modal.open(currentPageId);
       if (Sidebar.setActive) Sidebar.setActive(currentPageId);

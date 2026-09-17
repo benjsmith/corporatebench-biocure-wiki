@@ -26,6 +26,7 @@
         <svg viewBox="0 0 16 16" width="14" height="14"><path d="M10 4 L6 8 L10 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <span class="workspace-name">ce-cb-biocure</span>
+      <a class="sidebar-download-link" href="downloads.html" title="Download wiki + vault" style="margin-left:auto;font-size:11px;color:var(--text-muted, #9a9aa8);text-decoration:none;padding:2px 6px;border:1px solid var(--line, #3a3a46);border-radius:6px;">download</a>
     </header>
     <div class="sidebar-search-wrap">
       <input id="sidebar-search" type="search" placeholder="Search pages…" autocomplete="off" spellcheck="false">
@@ -54,14 +55,11 @@
   </aside>
 
   <main id="graph-pane">
-    <div id="graph"></div>
-    <div class="graph-search">
-      <input id="graph-search-input" type="search" placeholder="Search wiki…" autocomplete="off" spellcheck="false" aria-label="Search the graph">
-      <span id="graph-search-count" class="graph-search-count" hidden></span>
-      <button id="graph-search-clear" class="icon-btn graph-search-clear" title="Clear search" aria-label="Clear search" hidden>
-        <svg viewBox="0 0 16 16" width="12" height="12"><line x1="4" y1="4" x2="12" y2="12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><line x1="12" y1="4" x2="4" y2="12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-      </button>
+    <div id="atlas-search-wrap" class="atlas-search-wrap" hidden>
+      <input id="atlas-search" type="search" placeholder="Find nodes &amp; docs…" autocomplete="off" spellcheck="false">
+      <div id="atlas-search-results" class="atlas-search-results" role="listbox" hidden></div>
     </div>
+    <div id="graph"></div>
     <div class="graph-controls">
       <button id="viewer-mode" class="ctrl-btn hidden" title="Switch graph viewer" aria-label="Switch graph viewer">
         <span class="ctrl-label">view:</span><span id="viewer-mode-state">classic</span>
@@ -92,7 +90,14 @@
         <button id="label-types-reset" class="settings-reset">Reset</button>
       </div>
     </div>
-    <button id="settings-trigger" class="icon-btn settings-trigger" title="Physics settings" aria-label="Physics settings">
+    <button id="help-trigger" class="icon-btn help-trigger" title="About this page" aria-label="About this page" aria-expanded="false" aria-controls="help-panel">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M9.1 9a3 3 0 015.8 1c0 2-3 2.5-3 4"/>
+        <circle cx="12" cy="17" r="0.7" fill="currentColor" stroke="none"/>
+      </svg>
+    </button>
+    <button id="settings-trigger" class="icon-btn settings-trigger" title="Physics settings" aria-label="Physics settings" aria-expanded="false" aria-controls="settings-panel">
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
         <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
         <circle cx="12" cy="12" r="3"/>
@@ -112,11 +117,30 @@
       </div>
       <div class="settings-row">
         <label for="phys-collide">Collide pad</label>
-        <input id="phys-collide" type="range" min="0" max="40" step="1" value="28">
+        <input id="phys-collide" type="range" min="0" max="60" step="1" value="28">
         <span id="phys-collide-val" class="settings-val">28</span>
       </div>
       <button id="phys-reset" class="settings-reset">Reset</button>
     </div>
+    <div id="help-panel" class="help-panel hidden" role="dialog" aria-label="About this page">
+      <div class="settings-head">About</div>
+      <p class="help-lead">This is the <a href="https://github.com/benjsmith/curiosity-engine" target="_blank" rel="noopener noreferrer">Curiosity Engine</a> atlas viewer over a Curiosity Engine–curated wiki.</p>
+      <p>CE <code>source</code> pages are short stubs; click a vault cite (or <em>Open full vault source</em>) to load the extracted document from a zip shard in a new tab. The wiki’s source files are from <a href="https://huggingface.co/datasets/epiq-ai-labs/corporatebench" target="_blank" rel="noopener noreferrer">CorporateBench</a>: a ~26k-page simulated company document corpus (Biocure tranche).</p>
+      <ul class="help-links">
+        <li><a href="https://github.com/benjsmith/curiosity-engine" target="_blank" rel="noopener noreferrer">Curiosity Engine</a> — curator that built this wiki</li>
+        <li><a href="https://github.com/benjsmith/corporatebench-biocure-wiki" target="_blank" rel="noopener noreferrer">This wiki package</a> — GitHub repo + Releases</li>
+        <li><a href="https://huggingface.co/datasets/epiq-ai-labs/corporatebench" target="_blank" rel="noopener noreferrer">CorporateBench dataset</a> — Hugging Face repo</li>
+        <li><a href="https://arxiv.org/abs/2608.27391" target="_blank" rel="noopener noreferrer">CorporateBench paper</a> — arXiv:2608.27391</li>
+      </ul>
+      <div class="help-cite-label">Citation</div>
+      <blockquote class="help-cite">
+        Sil Hamilton, Albert Yu Sun, Oscar J. Romero, Carl-Leander Henneking, David Mimno, Bishan Yang, and Igor Labutov. 2026.
+        <em>CorporateBench: Large-Scale Q&amp;A Benchmarking with Temporal Knowledge Bases</em>.
+        arXiv preprint arXiv:2608.27391.
+        <a href="https://arxiv.org/abs/2608.27391" target="_blank" rel="noopener noreferrer">https://arxiv.org/abs/2608.27391</a>
+      </blockquote>
+    </div>
+
   </main>
 
   <div id="modal-backdrop" class="hidden" aria-hidden="true"></div>
@@ -165,7 +189,6 @@
        vendored like d3/fuse. -->
   <script src="static/vendor/knowledge-atlas.js"></script>
   <script src="static/atlas.js"></script>
-  <script src="static/search.js"></script>
   <script src="static/main.js"></script>
 </body>
 </html>

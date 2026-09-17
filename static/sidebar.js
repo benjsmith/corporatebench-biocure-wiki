@@ -51,8 +51,6 @@ window.Sidebar = (function () {
   }
 
   let listEl, searchEl, fuse, allRecords, allPages;
-  let searchHits = new Set();   // page ids ringed by the graph-view search
-  let autoExpanded = new Set(); // groups opened to reveal a hit
   let collapsed = new Set();   // type names currently collapsed
 
   function init(data) {
@@ -79,10 +77,22 @@ window.Sidebar = (function () {
     });
 
     // Restore collapsed state from localStorage so it survives reloads.
+    // Large wikis: default ALL types collapsed and lazy-render bodies so we
+    // do not inject tens of thousands of DOM nodes on first paint (Pages).
+    let hasStoredCollapse = false;
     try {
-      const stored = JSON.parse(localStorage.getItem('curiosity-engine.collapsed-types') || '[]');
+      const raw = localStorage.getItem('curiosity-engine.collapsed-types');
+      hasStoredCollapse = raw !== null;
+      const stored = JSON.parse(raw || '[]');
       collapsed = new Set(stored);
     } catch (e) { collapsed = new Set(); }
+    const LARGE = allRecords.length > 2000;
+    if (LARGE && !hasStoredCollapse) {
+      collapsed = new Set(allRecords.map(r => canonicalType(r.type)));
+      try {
+        localStorage.setItem('curiosity-engine.collapsed-types', JSON.stringify([...collapsed]));
+      } catch (e) {}
+    }
 
     renderGrouped();
 
@@ -164,6 +174,8 @@ window.Sidebar = (function () {
         a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
       const isCollapsed = collapsed.has(t);
       const label = TYPE_LABEL[t] || (t.charAt(0).toUpperCase() + t.slice(1));
+      // Lazy: skip row HTML while collapsed (expand fills on toggle).
+      const body = isCollapsed ? '' : recs.map(rowHtml).join('');
       return `<section class="type-group" data-type="${escapeAttr(t)}" data-collapsed="${isCollapsed ? 'true' : 'false'}">
         <button class="type-group-header" data-action="toggle-group" data-type="${escapeAttr(t)}">
           <span class="group-chev"><svg viewBox="0 0 10 10" width="10" height="10"><path d="M2 4 L5 7 L8 4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
@@ -171,17 +183,15 @@ window.Sidebar = (function () {
           <span class="type-group-name">${escapeHtml(label)}</span>
           <span class="type-group-count">${recs.length}</span>
         </button>
-        <div class="type-group-body">${recs.map(rowHtml).join('')}</div>
+        <div class="type-group-body">${body}</div>
       </section>`;
     }).join('');
     listEl.innerHTML = html;
-    applySearchHits();
   }
 
   /* Flat view (during search). */
   function renderFlat(items) {
     listEl.innerHTML = items.map(rowHtml).join('');
-    applySearchHits();
   }
 
   function rowHtml(rec) {
@@ -189,40 +199,6 @@ window.Sidebar = (function () {
       <span class="dot dot-${escapeAttr(rec.type)}"></span>
       <span class="row-title">${escapeHtml(rec.title)}</span>
     </button>`;
-  }
-
-  /* Graph-view search hits, mirrored onto the page list. Rows are
-   * rebuilt by both renderers, so the set is the source of truth and
-   * gets re-applied after every render rather than painted once. */
-  function applySearchHits() {
-    if (!listEl) return;
-    listEl.querySelectorAll('.sidebar-row').forEach(row => {
-      row.dataset.searchHit = searchHits.has(row.dataset.id) ? 'true' : '';
-    });
-    // A hit inside a collapsed group is invisible. Open those groups for
-    // the life of the search and put them back when it clears — the
-    // user's own collapsed set (persisted) is left untouched.
-    listEl.querySelectorAll('.type-group').forEach(group => {
-      const t = group.dataset.type;
-      const hasHit = !!group.querySelector('.sidebar-row[data-search-hit="true"]');
-      if (hasHit && collapsed.has(t)) {
-        autoExpanded.add(t);
-        group.dataset.collapsed = 'false';
-      } else if (!hasHit && autoExpanded.has(t)) {
-        autoExpanded.delete(t);
-        group.dataset.collapsed = collapsed.has(t) ? 'true' : 'false';
-      }
-    });
-  }
-
-  function setSearchHits(ids) {
-    const had = searchHits.size > 0;
-    searchHits = new Set(ids || []);
-    applySearchHits();
-    if (!had && searchHits.size && listEl) {
-      const first = listEl.querySelector('.sidebar-row[data-search-hit="true"]');
-      if (first && first.scrollIntoView) first.scrollIntoView({ block: 'nearest' });
-    }
   }
 
   function setActive(pageId) {
@@ -266,7 +242,18 @@ window.Sidebar = (function () {
         localStorage.setItem('curiosity-engine.collapsed-types', JSON.stringify([...collapsed]));
       } catch (e) {}
       const group = header.closest('.type-group');
-      if (group) group.dataset.collapsed = collapsed.has(t) ? 'true' : 'false';
+      if (group) {
+        group.dataset.collapsed = collapsed.has(t) ? 'true' : 'false';
+        const body = group.querySelector('.type-group-body');
+        if (body && !collapsed.has(t) && !body.dataset.filled) {
+          const recs = allRecords
+            .filter(r => canonicalType(r.type) === t)
+            .slice()
+            .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
+          body.innerHTML = recs.map(rowHtml).join('');
+          body.dataset.filled = '1';
+        }
+      }
       return;
     }
     const row = ev.target.closest && ev.target.closest('.sidebar-row');
@@ -274,5 +261,5 @@ window.Sidebar = (function () {
     window.location.hash = '#page=' + encodeURIComponent(row.dataset.id);
   });
 
-  return { init, setActive, setSearchHits, updateCounts };
+  return { init, setActive, updateCounts };
 })();

@@ -45,17 +45,27 @@
     var typePanel = document.getElementById('label-types-panel');
     var settingsButton = document.getElementById('settings-trigger');
     var settingsPanel = document.getElementById('settings-panel');
+    var helpButton = document.getElementById('help-trigger');
+    var helpPanel = document.getElementById('help-panel');
     if (edgeButton) edgeButton.classList.remove('hidden');
-    // At large N the force solve is expensive; physics is fixed via
-    // mount defaults and the gear UI is hidden so sliders cannot thrash it.
-    try {
-      var nAttr = document.getElementById('graph') && document.getElementById('graph').dataset.corpusSize;
-      var n = nAttr ? parseInt(nAttr, 10) : 0;
-      if (n >= 2000 && settingsButton) {
-        settingsButton.classList.add('hidden');
-        if (settingsPanel) settingsPanel.classList.add('hidden');
+
+    function setExpanded(btn, open) {
+      if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    function closePanel(panel, btn) {
+      if (panel && !panel.classList.contains('hidden')) {
+        panel.classList.add('hidden');
+        setExpanded(btn, false);
       }
-    } catch (e) {}
+    }
+    function togglePanel(panel, btn, otherPanel, otherBtn) {
+      if (!panel || !btn) return;
+      var willOpen = panel.classList.contains('hidden');
+      closePanel(otherPanel, otherBtn);
+      if (typePanel && panel !== typePanel) typePanel.classList.add('hidden');
+      panel.classList.toggle('hidden', !willOpen);
+      setExpanded(btn, willOpen);
+    }
 
     function paintLabels() {
       if (modeState) modeState.textContent = mode;
@@ -107,6 +117,8 @@
       });
       typeButton.addEventListener('click', function (ev) {
         ev.stopPropagation();
+        closePanel(settingsPanel, settingsButton);
+        closePanel(helpPanel, helpButton);
         typePanel.classList.toggle('hidden');
       });
       var typeReset = document.getElementById('label-types-reset');
@@ -124,7 +136,7 @@
     if (settingsPanel && settingsButton) {
       settingsButton.addEventListener('click', function (ev) {
         ev.stopPropagation();
-        settingsPanel.classList.toggle('hidden');
+        togglePanel(settingsPanel, settingsButton, helpPanel, helpButton);
       });
       function bind(inputId, valueId, key) {
         var input = document.getElementById(inputId);
@@ -153,6 +165,13 @@
       });
     }
 
+    if (helpPanel && helpButton) {
+      helpButton.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        togglePanel(helpPanel, helpButton, settingsPanel, settingsButton);
+      });
+    }
+
     document.addEventListener('click', function (ev) {
       if (typePanel && !typePanel.classList.contains('hidden') &&
           !typePanel.contains(ev.target) && (!typeButton || !typeButton.contains(ev.target))) {
@@ -160,8 +179,18 @@
       }
       if (settingsPanel && !settingsPanel.classList.contains('hidden') &&
           !settingsPanel.contains(ev.target) && (!settingsButton || !settingsButton.contains(ev.target))) {
-        settingsPanel.classList.add('hidden');
+        closePanel(settingsPanel, settingsButton);
       }
+      if (helpPanel && !helpPanel.classList.contains('hidden') &&
+          !helpPanel.contains(ev.target) && (!helpButton || !helpButton.contains(ev.target))) {
+        closePanel(helpPanel, helpButton);
+      }
+    });
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'Escape') return;
+      closePanel(settingsPanel, settingsButton);
+      closePanel(helpPanel, helpButton);
+      if (typePanel) typePanel.classList.add('hidden');
     });
     paintLabels();
     paintEdges();
@@ -172,52 +201,6 @@
       cycleEdgeMode: cycleEdgeMode,
       repaint: repaint,
     };
-  }
-
-  /* Drop the scene's "current focus" decoration.
-   *
-   * The scene builder always designates one node as the focus — accent
-   * ring, its edges lit at priority 1 — and when the host has no focus
-   * it picks a deterministic entry node instead. A wiki that stays
-   * resident as one full-graph scene never rebuilds on focus changes,
-   * so that mark is stuck on a page the user never chose for the whole
-   * session, trailing lit edges. Roles are read by the renderer per
-   * frame and by the layout only while solving, which has already
-   * happened by scene-ready — so demoting them afterwards changes the
-   * picture and nothing else. */
-  function stripFocusMark(engine) {
-    var snap = engine && engine.snapshot ? engine.snapshot() : null;
-    var scene = snap && snap.scene;
-    if (!scene) return false;
-    var changed = false;
-    (scene.nodes || []).forEach(function (n) {
-      if (n.role === 'focus') { n.role = 'neighbour'; changed = true; }
-    });
-    (scene.edges || []).forEach(function (e) {
-      if (e.priority === 1) { e.priority = 5; changed = true; }
-    });
-    return changed;
-  }
-
-  /* Search hits wear the dashed halo — the renderer's "pinned" mark,
-   * read straight off engine state at draw time.
-   *
-   * What this must NOT do is call pin()/unpin(): those ask for a scene
-   * rebuild each, so a 40-hit query fires dozens of async rebuilds per
-   * keystroke, and a rebuild landing after the search is cleared
-   * repaints the stale halos — hits then stay highlighted for good.
-   * Writing the array and asking for one repaint touches no scene at
-   * all. Selection is cleared alongside: its solid accent ring is a
-   * second, competing highlight on the same nodes. */
-  function highlightSearch(handle, repaint, ids) {
-    var engine = handle.engine;
-    if (engine.trails && Array.isArray(engine.trails.pinned)) {
-      engine.trails.pinned = (ids || []).slice();
-    }
-    if (engine.select) engine.select([], 'replace');
-    if (repaint) repaint();
-    var host = document.getElementById('graph');
-    if (host) host.dataset.searchHits = String((ids || []).length);
   }
 
   function pageCount(data) {
@@ -266,10 +249,12 @@
     var explicit = queryChoice();
     if (explicit) return explicit === 'atlas';
     try {
-      return localStorage.getItem(STORAGE_KEY) === 'atlas';
-    } catch (e) {
-      return false;
-    }
+      var stored = localStorage.getItem(STORAGE_KEY);
+      if (stored === 'classic') return false;
+      if (stored === 'atlas') return true;
+    } catch (e) {}
+    /* ≤1000: Classic remains the default until the user opts into Atlas. */
+    return false;
   }
 
   /* view: chooser only when Classic is still a safe option (≤1000).
@@ -307,101 +292,283 @@
     });
   }
 
+
+  function initAtlasSearch(handle, data) {
+    var wrap = document.getElementById('atlas-search-wrap');
+    var input = document.getElementById('atlas-search');
+    var results = document.getElementById('atlas-search-results');
+    if (!wrap || !input || !results || !window.Fuse) return;
+    wrap.hidden = false;
+
+    var records = (data.nodes || []).map(function (n) {
+      return { id: n.id, title: n.title || n.id, type: n.type || '' };
+    });
+    var fuse = new Fuse(records, {
+      keys: [
+        { name: 'title', weight: 0.75 },
+        { name: 'type', weight: 0.1 },
+        { name: 'id', weight: 0.15 },
+      ],
+      threshold: 0.35,
+      ignoreLocation: true,
+      minMatchCharLength: 1,
+    });
+
+    var active = -1;
+    var currentHits = [];
+
+    function clearHighlights() {
+      if (handle.engine && handle.engine.select) {
+        handle.engine.select([], 'replace');
+      }
+      results.hidden = true;
+      results.innerHTML = '';
+      active = -1;
+      currentHits = [];
+    }
+
+    function paintResults(hits) {
+      currentHits = hits;
+      active = hits.length ? 0 : -1;
+      if (!hits.length) {
+        results.hidden = true;
+        results.innerHTML = '';
+        return;
+      }
+      results.hidden = false;
+      results.innerHTML = hits.map(function (h, i) {
+        return '<button type="button" class="atlas-search-hit" role="option" data-idx="' + i + '"' +
+          (i === active ? ' aria-selected="true"' : '') + '>' +
+          '<span class="hit-type">' + escapeHtml(h.type || '') + '</span>' +
+          '<span class="hit-title">' + escapeHtml(h.title) + '</span></button>';
+      }).join('');
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"]/g, function (c) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c];
+      });
+    }
+
+    function applyHits(hits) {
+      var ids = hits.map(function (h) { return h.id; });
+      if (handle.engine && handle.engine.select) {
+        handle.engine.select(ids.slice(0, 80), 'replace');
+      }
+      paintResults(hits.slice(0, 12));
+      if (hits[0] && handle.engine && handle.engine.focus) {
+        // Soft focus first hit so the camera moves toward it without opening.
+        try { handle.engine.hover(hits[0].id); } catch (e) {}
+      }
+    }
+
+    function openHit(hit) {
+      if (!hit) return;
+      if (handle.engine && handle.engine.focus) {
+        handle.engine.focus(hit.id, 'user');
+      }
+      window.location.hash = '#page=' + encodeURIComponent(hit.id);
+      results.hidden = true;
+    }
+
+    input.addEventListener('input', function () {
+      var q = input.value.trim();
+      if (!q) { clearHighlights(); return; }
+      var hits = fuse.search(q, { limit: 40 }).map(function (r) { return r.item; });
+      applyHits(hits);
+    });
+
+    input.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape') {
+        input.value = '';
+        clearHighlights();
+        input.blur();
+        return;
+      }
+      if (ev.key === 'ArrowDown') {
+        ev.preventDefault();
+        if (!currentHits.length) return;
+        active = Math.min(currentHits.length - 1, active + 1);
+        paintResults(currentHits);
+        return;
+      }
+      if (ev.key === 'ArrowUp') {
+        ev.preventDefault();
+        if (!currentHits.length) return;
+        active = Math.max(0, active - 1);
+        paintResults(currentHits);
+        return;
+      }
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        openHit(currentHits[Math.max(0, active)] || currentHits[0]);
+      }
+    });
+
+    results.addEventListener('click', function (ev) {
+      var btn = ev.target.closest && ev.target.closest('.atlas-search-hit');
+      if (!btn) return;
+      var idx = parseInt(btn.dataset.idx, 10);
+      openHit(currentHits[idx]);
+    });
+  }
+
+
   // Called by main.js instead of Graph.init when the flag is on.
   // Returns a Graph-compatible facade so focus()/clearFocus() callers
-  // keep working.
+  // keep working. Edges are preloaded BEFORE mount so force layout
+  // clusters correctly; edge *strokes* are gated by camera scale so
+  // zoomed-out views stay readable (~1k nodes on screen ⇒ edges on).
+  function gunzipJson(url) {
+    return fetch(url).then(function (res) {
+      if (!res.ok) throw new Error(url + ' HTTP ' + res.status);
+      return res.arrayBuffer();
+    }).then(function (buf) {
+      var bytes = new Uint8Array(buf);
+      var isGzip = bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+      if (isGzip) {
+        if (!window.DecompressionStream) {
+          return Promise.reject(new Error('DecompressionStream unavailable'));
+        }
+        var stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'));
+        return new Response(stream).text();
+      }
+      return new TextDecoder().decode(bytes);
+    }).then(function (text) { return JSON.parse(text); });
+  }
+
   function init(data) {
     var container = document.getElementById('graph');
     if (!container || !window.KnowledgeAtlas) return null;
-    container.innerHTML = '';
+    container.innerHTML =
+      '<div style="padding:28px;color:#bdbdc8;font:14px/1.45 system-ui">' +
+      'Loading WikiLinks + building force layout…</div>';
 
     var corpusSize = pageCount(data);
-    container.dataset.corpusSize = String(corpusSize);
     /* Edge strokes: controlled by edgeMode (auto/on/off) — drawing only;
      * edges stay in the force graph and link counts. Default auto is a
      * sparse subset on large corpora (full draw when small). */
-    var handle = window.KnowledgeAtlas.mount(container, {
-      data: data,
-      edgeMode: 'auto',
-      // Hybrid: Classic field in the core, log-compressed individual
-      // nodes on the rim. corpusSize makes the first frame that view
-      // (not type-cluster bubbles). Pin capacity to this corpus so
-      // first mount, remount, and viewport changes all render the
-      // same individual-node scene. The rate HUD is drawn at the TOP
-      // of the canvas (`fillText` y = -height/2+22).
-      config: {
-        layout: 'hybrid',
-        corpusSize: corpusSize,
-        coreCapacity: Math.max(1, corpusSize),
-        maxVisibleNodes: Math.max(1, corpusSize),
-        physics: {
-          charge: PHYSICS_DEFAULTS.charge,
-          link: PHYSICS_DEFAULTS.link,
-          collide: PHYSICS_DEFAULTS.collide,
-        },
-        budget: {
-          maxNodes: Math.max(1, corpusSize),
-          maxAggregates: 0,
-          maxEdges: Math.max(900, (data.edges || []).length),
-        },
-      },
-      onOpenItem: function (id) {
-        window.location.hash = '#page=' + encodeURIComponent(id);
-      },
-      onEvent: function (event) {
-        // Every scene arrives carrying a focus mark. Take it off before
-        // the user sees it; the engine's own scene-ready paint runs
-        // after this callback, so no extra repaint is needed here.
-        if (event && event.kind === 'scene-ready' && handle) {
-          stripFocusMark(handle.engine);
-        }
-      },
-    });
-    var controls = initAtlasControls(handle);
-    // Covers a scene that landed before onEvent was wired.
-    if (stripFocusMark(handle.engine)) controls.repaint();
-    // When a static host shards edges to edges.json.gz, assign
-    // data.edges after preload and call Sidebar.updateCounts(data)
-    // so the footer does not stay at "N pages · 0 links".
-    if (window.Sidebar && typeof Sidebar.updateCounts === 'function') {
-      Sidebar.updateCounts(data);
+
+    var pages = {};
+    var nodes = data.nodes || [];
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      var stub = (data.pages && data.pages[n.id]) || {};
+      pages[n.id] = {
+        id: n.id,
+        title: n.title || n.id,
+        type: n.type,
+        path: n.path || (n.id + '.md'),
+        properties: {},
+        body_html: '',
+        body_shard: stub.body_shard,
+      };
     }
 
-    return {
+    var handle = null;
+    var controls = null;
+    var facade = {
       focus: function (pageId) {
-        handle.engine.focus(pageId, 'system');
-        if (handle.engine.select) handle.engine.select([pageId], 'replace');
+        if (handle && handle.engine) handle.engine.focus(pageId, 'system');
+      },
+      select: function (ids) {
+        if (handle && handle.engine && handle.engine.select) {
+          handle.engine.select(ids || [], 'replace');
+        }
       },
       clearFocus: function () {
-        if (handle.engine.select) handle.engine.select([], 'replace');
-        if (handle.engine.clearFocus) handle.engine.clearFocus();
-        stripFocusMark(handle.engine);
-        if (controls && controls.repaint) controls.repaint();
+        if (handle && handle.engine && handle.engine.select) {
+          handle.engine.select([], 'replace');
+        }
       },
-      highlightSearch: function (ids) {
-        highlightSearch(handle, controls.repaint, ids);
+      setLabelMode: function (mode) {
+        if (controls && controls.setMode) controls.setMode(mode);
       },
-      setLabelMode: controls.setMode,
-      cycleLabelMode: controls.cycleMode,
-      setEdgeMode: controls.setEdgeMode,
-      cycleEdgeMode: controls.cycleEdgeMode,
+      cycleLabelMode: function () {
+        if (controls && controls.cycleMode) controls.cycleMode();
+      },
+      setEdgeMode: function (mode) {
+        if (controls && controls.setEdgeMode) controls.setEdgeMode(mode);
+      },
+      cycleEdgeMode: function () {
+        if (controls && controls.cycleEdgeMode) controls.cycleEdgeMode();
+      },
       destroy: function () {
-        handle.destroy();
+        if (handle) handle.destroy();
       },
-      /* Chrome-free info surface: the engine renders no panels — host
-       * chrome (the future telemetry bar, discovery shelf UI, Switch
-       * Bay's rail/tab) subscribes here. subscribe(cb) receives every
-       * AtlasEvent (scene-ready stats, discovery-engaged, trail-changed,
-       * telemetry…); getSnapshot() returns {scene, layout, state, stats}
-       * for pull-style rendering. */
       subscribe: function (cb) {
-        return handle.engine.on(cb);
+        return handle && handle.engine ? handle.engine.on(cb) : function () {};
       },
       getSnapshot: function () {
-        return handle.engine.snapshot();
+        return handle && handle.engine ? handle.engine.snapshot() : null;
       },
-      controller: handle.engine,
+      get controller() {
+        return handle ? handle.engine : null;
+      },
     };
+
+    var edgeUrl = (data && data.edges_url) || 'edges.json.gz';
+    var edgePromise = (data.edges && data.edges.length)
+      ? Promise.resolve(data.edges)
+      : gunzipJson(edgeUrl);
+
+    edgePromise.then(function (edges) {
+      var atlasData = {
+        workspace: data.workspace,
+        generated_at: data.generated_at,
+        palette: data.palette,
+        nodes: nodes,
+        edges: edges,
+        pages: pages,
+      };
+      container.innerHTML = '';
+      handle = window.KnowledgeAtlas.mount(container, {
+        data: atlasData,
+        edgeMode: 'auto',
+        config: {
+          layout: 'hybrid',
+          corpusSize: corpusSize,
+          coreCapacity: Math.max(1, corpusSize),
+          maxVisibleNodes: Math.max(1, corpusSize),
+          /* Roomier than CE defaults: sliders were unresponsive at ~40k nodes,
+             so physics is fixed here and the gear UI is hidden. */
+          physics: {
+            charge: PHYSICS_DEFAULTS.charge,
+            link: PHYSICS_DEFAULTS.link,
+            collide: PHYSICS_DEFAULTS.collide,
+          },
+          budget: {
+            maxNodes: Math.max(1, corpusSize),
+            maxAggregates: 0,
+            maxEdges: Math.max(edges.length, 900),
+            maxBundles: 0,
+            maxLabels: 60,
+          },
+        },
+        onOpenItem: function (id) {
+          window.location.hash = '#page=' + encodeURIComponent(id);
+        },
+      });
+      controls = initAtlasControls(handle);
+      initAtlasSearch(handle, atlasData);
+      /* Subgraph/minigraph + any other consumer still hold the slim
+       * data object from main.js (edges: []). Point them at the full set. */
+      data.edges = edges;
+      if (window.Subgraph && typeof Subgraph.init === 'function') {
+        Subgraph.init(data);
+      }
+      if (window.Sidebar && typeof Sidebar.updateCounts === 'function') {
+        Sidebar.updateCounts(data);
+      }
+      console.info('Atlas mounted with', edges.length, 'edges; edgeMode auto');
+    }).catch(function (err) {
+      console.error('Atlas edge preload / mount failed', err);
+      container.innerHTML =
+        '<div style="padding:24px;color:#ccc;font:14px system-ui">' +
+        'Atlas failed to start (edge load). See console.</div>';
+    });
+
+    return facade;
   }
 
   window.AtlasViewer = {

@@ -218,12 +218,6 @@ body[data-sidebar="collapsed"] #sidebar > * { display: none; }
   background: var(--bg-elev);
   color: var(--accent);
 }
-/* Graph-view search hit — the page list marks what the canvas marks,
- * so the two surfaces always agree about what matched. */
-.sidebar-row[data-search-hit="true"] {
-  background: color-mix(in oklab, var(--accent), transparent 82%);
-}
-.sidebar-row[data-search-hit="true"] .row-title { color: var(--accent); }
 .row-title {
   white-space: nowrap;
   overflow: hidden;
@@ -364,22 +358,7 @@ body[data-sidebar="collapsed"] .sidebar-restore { display: inline-flex; }
  */
 .node[data-vis="hidden"]     { opacity: 0; pointer-events: none; }
 .node[data-vis="dim"]        { opacity: 0.18; }
-.node[data-vis="focus"] > circle.node-body { stroke: var(--accent); stroke-width: 2px; }
-
-/* Search hits wear a halo and nothing else: a dashed ring standing off
- * the node, the same mark the Atlas renderer uses for pinned nodes. The
- * node keeps its own fill and stroke — an extra accent outline reads as
- * a second, competing highlight. `r` is refreshed on zoom (graph.js) so
- * the standoff holds in screen px. */
-.node > circle.search-ring { display: none; fill: none; pointer-events: none; }
-.node.search-hit > circle.search-ring {
-  display: inline;
-  stroke: var(--text);
-  stroke-width: 1.2px;
-  stroke-dasharray: 2 2;
-  opacity: 0.95;
-  vector-effect: non-scaling-stroke;
-}
+.node[data-vis="focus"] circle { stroke: var(--accent); stroke-width: 2px; }
 .node:not([data-vis]),
 .node[data-vis="visible"]    { opacity: 1; }
 
@@ -393,48 +372,6 @@ body[data-sidebar="collapsed"] .sidebar-restore { display: inline-flex; }
 .edge[data-vis="hidden"]     { opacity: 0; }
 .edge[data-vis="dim"]        { stroke-opacity: 0.06; }
 .edge[data-vis="focus"]      { stroke: var(--accent); stroke-opacity: 0.9; }
-
-/* Graph search — centred over the canvas, out of the way of the
- * bottom-left controls and the modal. */
-.graph-search {
-  position: absolute;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: min(420px, calc(100% - 120px));
-  padding: 4px 8px 4px 12px;
-  background: var(--bg-soft);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  box-shadow: var(--shadow);
-}
-#graph-search-input {
-  flex: 1 1 auto;
-  min-width: 0;
-  background: transparent;
-  border: none;
-  outline: none;
-  color: var(--text);
-  font: inherit;
-  font-size: 13px;
-}
-#graph-search-input::placeholder { color: var(--text-faint); }
-#graph-search-input::-webkit-search-cancel-button { display: none; }
-.graph-search-count {
-  flex: 0 0 auto;
-  color: var(--text-faint);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-.graph-search-clear { flex: 0 0 auto; }
-/* `.icon-btn` sets `display`, which outranks the UA sheet's
- * `[hidden] { display: none }` — without this the clear button and
- * the hit count show over an empty search box. */
-.graph-search [hidden] { display: none; }
 
 .graph-controls {
   position: absolute;
@@ -501,6 +438,11 @@ body[data-sidebar="collapsed"] .sidebar-restore { display: inline-flex; }
   background: var(--bg-elev);
 }
 
+/* physics gear hidden at full-corpus scale — force params fixed in atlas.js */
+.settings-trigger,
+.settings-panel {
+  display: none !important;
+}
 .settings-trigger {
   position: absolute;
   top: 12px;
@@ -512,6 +454,74 @@ body[data-sidebar="collapsed"] .sidebar-restore { display: inline-flex; }
   padding: 6px;
 }
 .settings-trigger:hover { color: var(--text); }
+
+
+/* About / help — sits left of the physics gear */
+.help-trigger {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 12;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px;
+}
+.help-trigger:hover { color: var(--text); }
+.help-trigger[aria-expanded="true"] {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.help-panel {
+  position: absolute;
+  top: 48px;
+  right: 14px;
+  z-index: 14;
+  width: min(360px, calc(100vw - 28px));
+  max-height: min(70vh, 520px);
+  overflow: auto;
+  padding: 12px 14px 14px;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text);
+}
+.help-panel p { margin: 0 0 10px; color: var(--text); }
+.help-panel .help-lead { margin-top: 0; }
+.help-panel a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.help-panel a:hover { text-decoration: underline; }
+.help-links {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  color: var(--text-muted);
+}
+.help-links li { margin-bottom: 4px; }
+.help-cite-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+.help-cite {
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--bg-elev);
+  border-left: 2px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.help-cite em { color: var(--text); font-style: italic; }
 
 .settings-panel {
   position: absolute;
@@ -1130,3 +1140,72 @@ body[data-modal="open"] #sidebar * { pointer-events: auto; }
   }
 }
 
+
+.sidebar-head { display: flex; align-items: center; gap: 8px; }
+.sidebar-download-link:hover { color: var(--text, #e8e8ee) !important; border-color: var(--text-muted, #9a9aa8) !important; }
+
+/* Atlas find bar — host chrome above the Knowledge Atlas canvas */
+.atlas-search-wrap {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  width: min(420px, calc(100% - 48px));
+  pointer-events: auto;
+}
+#atlas-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line, #3a3a46);
+  background: color-mix(in srgb, var(--bg-elev, #18181f) 92%, transparent);
+  backdrop-filter: blur(8px);
+  color: var(--text, #e8e8ee);
+  font: 500 13px/1.3 system-ui, sans-serif;
+  outline: none;
+  box-shadow: 0 4px 18px rgba(0,0,0,.28);
+}
+#atlas-search:focus { border-color: var(--accent, #2f6fed); }
+#atlas-search::placeholder { color: var(--text-faint, #6b6b76); }
+.atlas-search-results {
+  margin-top: 6px;
+  max-height: 280px;
+  overflow: auto;
+  border-radius: 10px;
+  border: 1px solid var(--line, #3a3a46);
+  background: var(--bg-elev, #18181f);
+  box-shadow: 0 8px 24px rgba(0,0,0,.35);
+}
+.atlas-search-hit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text, #e8e8ee);
+  font: 13px/1.3 system-ui, sans-serif;
+  cursor: pointer;
+}
+.atlas-search-hit:hover,
+.atlas-search-hit[aria-selected="true"] {
+  background: color-mix(in srgb, var(--accent, #2f6fed) 18%, transparent);
+}
+.atlas-search-hit .hit-type {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  opacity: .55;
+  min-width: 64px;
+}
+.atlas-search-hit .hit-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+body[data-modal="open"] .atlas-search-wrap { opacity: 0.35; pointer-events: none; }
