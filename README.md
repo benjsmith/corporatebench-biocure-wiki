@@ -6,7 +6,7 @@ Interactive atlas / wiki viewer for the Biocure CorporateBench tranche curated w
 
 ## Live Atlas
 
-The GitHub Pages Atlas now serves **scrubbed repair-v18** @  (Answer:/eval phrasing removed from analyses; bold scalar/roster lead only). Tip SHA .
+The GitHub Pages Atlas now serves **scrubbed repair-v18** @ `881b407` (Answer:/eval phrasing removed from analyses; bold scalar/roster lead only). Tip SHA `881b4070d5ea449630f0995e59f9ba1806aabeed`.
 
 ## Downloads
 
@@ -29,7 +29,7 @@ On the live site: [Downloads](https://benjsmith.github.io/corporatebench-biocure
 
 ## Snapshot
 
-- **Wiki tip (live Atlas):** scrubbed  @  (Answer pollution removed)
+- **Wiki tip (live Atlas):** scrubbed `repair-v18` @ `881b407` (Answer pollution removed)
 - **Pages:** ~27 197 · **WikiLinks:** ~12 258 edges
 - **Vault:** CorporateBench Biocure sources (static shards on Pages; full vault also in Release assets)
 - **Viewer lineage:** Pages static keeps Atlas-only >1k, edges mode pill, sticky selection (CE #11–#13), mobile doc modal + portrait sidebar (`82d6e66`)
