@@ -1,9 +1,12 @@
 /* On-demand vault source open.
  *
- * CE source pages are stubs; full extracted text lives in vault/*.extracted.md.
- * Those files are packed into vault/shard-NN.zip (see vault/manifest.json.gz).
- * Clicking a .cite / .cite-vault control fetches only the needed shard, extracts
- * that one file with JSZip, and opens it in a new tab.
+ * CE source pages are succinct summaries; full extracted text lives in vault/*.extracted.md.
+ * Prefer GET /api/vault/<basename> when the local viewer_server is serving;
+ * otherwise pack those files into vault/shard-NN.zip (see vault/manifest.json.gz)
+ * and extract with JSZip. Clicking a .cite / .cite-vault control opens the
+ * source in a new tab (sync about:blank then fill — never same-tab navigate).
+ * Embedded hosts set data-sy-host=1 or window.__syOpenVault and receive a
+ * CustomEvent / callback instead of window.open.
  */
 window.VaultSources = (function () {
   const MANIFEST_URL = 'vault/manifest.json.gz';
@@ -164,18 +167,63 @@ window.VaultSources = (function () {
     }
   }
 
+  function openViaHost(filename) {
+    var detail = { path: 'vault/' + filename, name: filename };
+    if (typeof window.__syOpenVault === 'function') {
+      try {
+        window.__syOpenVault(detail);
+        return true;
+      } catch (err) {
+        console.warn('VaultSources: __syOpenVault failed', err);
+      }
+    }
+    if (document.documentElement.dataset.syHost === '1') {
+      try {
+        document.dispatchEvent(new CustomEvent('sy:open-vault-source', { detail: detail }));
+        return true;
+      } catch (err) {
+        console.warn('VaultSources: sy:open-vault-source failed', err);
+      }
+    }
+    return false;
+  }
+
+  function fetchApiVault(filename) {
+    return fetch('/api/vault/' + encodeURIComponent(filename)).then(function (res) {
+      if (!res.ok) throw new Error('api vault HTTP ' + res.status);
+      return res.text();
+    });
+  }
+
+  function fetchShardVault(filename) {
+    if (!window.JSZip) {
+      return Promise.reject(new Error('JSZip not loaded'));
+    }
+    return loadManifest().then(function (man) {
+      var sid = man.files && man.files[filename];
+      if (sid == null) throw new Error('Not in vault manifest: ' + filename);
+      return loadShardZip(sid).then(function (zip) {
+        var entry = zip.file(filename);
+        if (!entry) throw new Error('Missing from shard: ' + filename);
+        return entry.async('string');
+      });
+    });
+  }
+
   function open(name, triggerEl) {
     var filename = normalizeName(name);
     if (!filename) {
       console.warn('VaultSources: bad name', name);
       return Promise.resolve(false);
     }
-    if (!window.JSZip) {
-      alert('Vault viewer failed to load (JSZip missing).');
-      return Promise.resolve(false);
+    // Embedded hosts (Switch Bay / syHost) own the open surface — never
+    // window.open from inside their webview.
+    if (openViaHost(filename)) {
+      return Promise.resolve(true);
     }
     // Open the tab in the same tick as the click so Safari/Chrome do not
-    // treat it as a blocked popup (fetch/JSZip are async).
+    // treat it as a blocked popup (fetch/JSZip are async). NEVER navigate
+    // the atlas tab away as a fallback.
     var tab = window.open('about:blank', '_blank');
     if (tab) {
       try {
@@ -188,16 +236,10 @@ window.VaultSources = (function () {
       } catch (e) {}
     }
     setBusy(triggerEl, true, 'Loading…');
-    return loadManifest()
-      .then(function (man) {
-        var sid = man.files && man.files[filename];
-        if (sid == null) throw new Error('Not in vault manifest: ' + filename);
-        return loadShardZip(sid).then(function (zip) {
-          var entry = zip.file(filename);
-          if (!entry) throw new Error('Missing from shard: ' + filename);
-          return entry.async('string');
-        });
-      })
+    // Prefer the live viewer_server API (local serve); fall back to
+    // static zip shards for Pages / offline bundles.
+    return fetchApiVault(filename)
+      .catch(function () { return fetchShardVault(filename); })
       .then(function (text) {
         setBusy(triggerEl, false);
         openInTab(filename, text, tab);

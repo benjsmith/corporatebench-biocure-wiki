@@ -9,68 +9,9 @@ window.Modal = (function () {
   let pages = {};
   let modal, backdrop, closeBtn, titleEl, propsEl, bodyEl;
   let onClose = null;
-  const shardCache = {};  // shardId -> { pageId: body_html }
-  const shardInflight = {};
-
-  async function gunzipJson(url) {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(url + ' HTTP ' + res.status);
-    const buf = await res.arrayBuffer();
-    const bytes = new Uint8Array(buf);
-    const isGzip = bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
-    let text;
-    if (isGzip) {
-      if (!window.DecompressionStream) throw new Error('DecompressionStream unavailable');
-      const stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'));
-      text = await new Response(stream).text();
-    } else {
-      text = new TextDecoder().decode(bytes);
-    }
-    return JSON.parse(text);
-  }
-
-  async function ensureBody(page) {
-    if (!page) return '';
-    if (page.body_html) return page.body_html;
-    const sid = page.body_shard;
-    if (sid == null) return '';
-    if (!shardCache[sid]) {
-      if (!shardInflight[sid]) {
-        shardInflight[sid] = gunzipJson('bodies/' + sid + '.json.gz')
-          .then(map => { shardCache[sid] = map; delete shardInflight[sid]; return map; })
-          .catch(err => { delete shardInflight[sid]; throw err; });
-      }
-      await shardInflight[sid];
-    }
-    const html = (shardCache[sid] && shardCache[sid][page.id]) || '';
-    page.body_html = html;
-    return html;
-  }
-
-  let nodeById = Object.create(null);
-
-  function resolvePage(pageId) {
-    let page = pages[pageId];
-    if (page && page.title) return page;
-    const n = nodeById[pageId] || {};
-    const stub = page || {};
-    page = {
-      id: pageId,
-      title: n.title || stub.title || pageId,
-      type: n.type || stub.type || 'unclassified',
-      path: n.path || stub.path || (pageId + '.md'),
-      properties: stub.properties || {},
-      body_html: stub.body_html || '',
-      body_shard: stub.body_shard,
-    };
-    pages[pageId] = page;
-    return page;
-  }
 
   function init(data) {
     pages = data.pages || {};
-    nodeById = Object.create(null);
-    for (const n of (data.nodes || [])) nodeById[n.id] = n;
     modal = document.querySelector('#modal');
     backdrop = document.querySelector('#modal-backdrop');
     closeBtn = document.querySelector('#modal-close');
@@ -105,16 +46,14 @@ window.Modal = (function () {
   }
 
   function open(pageId) {
-    const page = resolvePage(pageId);
-    if (!page || (!nodeById[pageId] && !(pages[pageId] && pages[pageId].body_shard))) {
+    const page = pages[pageId];
+    if (!page) {
       console.warn('Modal: unknown page', pageId);
       return false;
     }
     titleEl.textContent = page.title || pageId;
     renderProperties(page);
-    bodyEl.innerHTML = page.body_html
-      ? page.body_html
-      : '<p style="opacity:.7">Loading page body…</p>';
+    bodyEl.innerHTML = page.body_html || '';
     finishBody(page);
     modal.classList.remove('hidden');
     backdrop.classList.remove('hidden');
@@ -124,23 +63,6 @@ window.Modal = (function () {
     bodyEl.parentElement.scrollTop = 0;
     if (window.Subgraph) Subgraph.render(pageId);
     if (window.Edit) Edit.updateForPage(page);
-    if (!page.body_html) {
-      const openedFor = pageId;
-      ensureBody(page).then(html => {
-        // Only fill if still viewing this page.
-        if (document.body.dataset.modal === 'open' &&
-            (window.location.hash === '#page=' + encodeURIComponent(openedFor) ||
-             titleEl.textContent === (page.title || pageId))) {
-          bodyEl.innerHTML = html || '<p style="opacity:.7">(empty)</p>';
-          finishBody(page);
-        }
-      }).catch(err => {
-        console.warn('body shard load failed', err);
-        if (document.body.dataset.modal === 'open') {
-          bodyEl.innerHTML = '<p style="opacity:.7">Failed to load page body.</p>';
-        }
-      });
-    }
     return true;
   }
 
@@ -227,7 +149,7 @@ window.Modal = (function () {
             '<button type="button" class="vault-open-btn cite-vault" data-vault="' +
             escapeHtml(name) +
             '">Open full vault source</button>' +
-            '<span class="vault-open-hint">CE source pages are stubs — full extracted text opens in a new tab.</span>';
+            '<span class="vault-open-hint">Source page is a summary — full extracted text opens in a new tab.</span>';
           bodyEl.insertBefore(bar, bodyEl.firstChild);
         }
       }
