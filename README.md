@@ -6,11 +6,11 @@ Interactive atlas / wiki viewer for the Biocure CorporateBench tranche curated w
 
 ## Live Atlas
 
-The GitHub Pages Atlas now serves **scrubbed repair-v18** @ `881b407` (Answer:/eval phrasing removed from analyses; bold scalar/roster lead only). Tip SHA `881b4070d5ea449630f0995e59f9ba1806aabeed`.
+The GitHub Pages Atlas now serves **confirm-v1** @ `fc1bc3c9d` (K*, CURATE-complete confirmatory tip; 100% unique vault cites). Tip SHA `fc1bc3c9d15210d2be21c2408abfbc3f891b7a25`.
 
 ## Downloads
 
-Tarball links below are the **previous hybrid snapshot** (`hybrid-sql-scalars` @ `76142912`) kept so existing release URLs keep working. A repair-v18 release tarball is optional / not required for this Pages content swap.
+Tarball links below are the **previous hybrid snapshot** (`hybrid-sql-scalars` @ `76142912`) kept so existing release URLs keep working. A confirm-v1 wiki-only release may be attached separately; full vault tarball is optional given size.
 
 | Archive | Size | Link |
 |--------|------|------|
@@ -24,14 +24,14 @@ On the live site: [Downloads](https://benjsmith.github.io/corporatebench-biocure
 
 | Path | Contents |
 |------|----------|
-| `/` | Static CE wiki viewer + Knowledge Atlas (`data.json.gz`, ~27 197 pages) |
+| `/` | Static CE wiki viewer + Knowledge Atlas (`data.json.gz`, ~28 829 pages) |
 | [Releases](https://github.com/benjsmith/corporatebench-biocure-wiki/releases) | Frozen wiki + vault tarballs (hybrid snapshot still published) |
 
 ## Snapshot
 
-- **Wiki tip (live Atlas):** scrubbed `repair-v18` @ `881b407` (Answer pollution removed)
-- **Pages:** ~27 197 · **WikiLinks:** ~12 258 edges
-- **Vault:** CorporateBench Biocure sources (static shards on Pages; full vault also in Release assets)
+- **Wiki tip (live Atlas):** `confirm-v1` @ `fc1bc3c9d` (CURATE-complete; 100% unique vault cites)
+- **Pages:** ~28 829 · **WikiLinks:** ~31 476 edges
+- **Vault:** CorporateBench Biocure sources (static shards on Pages; full vault also in prior Release assets)
 - **Viewer lineage:** Pages static keeps Atlas-only >1k, edges mode pill, sticky selection (CE #11–#13), mobile doc modal + portrait sidebar (`82d6e66`)
 
 ## Notes
