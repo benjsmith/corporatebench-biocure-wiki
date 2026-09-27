@@ -6,7 +6,7 @@ Interactive atlas / wiki viewer for the Biocure CorporateBench tranche curated w
 
 ## Live Atlas
 
-The GitHub Pages Atlas serves **confirm-v1-membership-concepts** @ `5009e670f` (membership restore + 86 capability/process concept pages on base tip `fc1bc3c9d`). Tip SHA `5009e670f9f807a2379e39cd5e27de09cd3000c7`.
+The GitHub Pages Atlas serves **confirm-v1-membership-concepts** @ `38e5d4ed0` (membership restore + 86 capability/process concept pages on base tip `fc1bc3c9d`; person email/calendar hubs rewritten to claim-specific evidence). Tip SHA `38e5d4ed01fa93de8bbd3d9a5cc23095e02c7a23`.
 
 ## Downloads
 
@@ -29,8 +29,8 @@ On the live site: [Downloads](https://benjsmith.github.io/corporatebench-biocure
 
 ## Snapshot
 
-- **Wiki tip (live Atlas):** `confirm-v1-membership-concepts` @ `5009e670f` (86 concepts; membership restore + SPEC-A/C/B2/D densify + orphan waves; base `fc1bc3c9d`)
-- **Pages:** 28,913 · **WikiLinks:** 33,460 edges
+- **Wiki tip (live Atlas):** `confirm-v1-membership-concepts` @ `38e5d4ed0` (86 concepts; membership restore + SPEC-A/C/B2/D densify + orphan waves + claim-specific evidence rewrite; base `fc1bc3c9d`)
+- **Pages:** 27,904 · **WikiLinks:** 34,950 edges
 - **Vault:** CorporateBench Biocure sources (static shards on Pages; full vault also in prior Release assets)
 - **Viewer lineage:** Pages static keeps Atlas-only >1k, edges mode pill, sticky selection (CE #11–#13), mobile doc modal + portrait sidebar (`82d6e66`)
 
