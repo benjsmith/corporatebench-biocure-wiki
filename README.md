@@ -6,7 +6,7 @@ Interactive atlas / wiki viewer for the Biocure CorporateBench tranche curated w
 
 ## Live Atlas
 
-The GitHub Pages Atlas now serves **confirm-v1-membership-concepts** @ `34c3f63b8` (membership restore + 15 capability/process concept pages on base tip `fc1bc3c9d`). Tip SHA `34c3f63b8ddc5b891bbe26b89e33e5f5daa8599f`.
+The GitHub Pages Atlas serves **confirm-v1-membership-concepts** @ `7074bbec6` (membership restore + 22 capability/process concept pages on base tip `fc1bc3c9d`). Tip SHA `7074bbec65f8527124a7939164bb9e78933ad21a`.
 
 ## Downloads
 
@@ -14,9 +14,9 @@ Tarball links below are the **previous hybrid snapshot** (`hybrid-sql-scalars` @
 
 | Archive | Size | Link |
 |--------|------|------|
-| **Wiki + vault (combined)** — previous hybrid | ~102 MB | [biocure-wiki-vault-76142912.tar.gz](https://github.com/benjsmith/corporatebench-biocure-wiki/releases/download/v1.0.0-hybrid-76142912/biocure-wiki-vault-76142912.tar.gz) |
-| Wiki only — previous hybrid | ~14 MB | [wiki-hybrid-76142912.tar.gz](https://github.com/benjsmith/corporatebench-biocure-wiki/releases/download/v1.0.0-hybrid-76142912/wiki-hybrid-76142912.tar.gz) |
-| Vault only — previous hybrid | ~88 MB | [vault.tar.gz](https://github.com/benjsmith/corporatebench-biocure-wiki/releases/download/v1.0.0-hybrid-76142912/vault.tar.gz) |
+| **Wiki + vault (combined)** — previous hybrid | ~102 MB | [biocure-wiki-vault-76142912.tar.gz](https://github.com/benjsmith/corporatebench-biocure-wiki/releases/download/v1.0.0-hybrid-76142912/biocure-wiki-vault-76142912.tar.gz) |
+| Wiki only — previous hybrid | ~14 MB | [wiki-hybrid-76142912.tar.gz](https://github.com/benjsmith/corporatebench-biocure-wiki/releases/download/v1.0.0-hybrid-76142912/wiki-hybrid-76142912.tar.gz) |
+| Vault only — previous hybrid | ~88 MB | [vault.tar.gz](https://github.com/benjsmith/corporatebench-biocure-wiki/releases/download/v1.0.0-hybrid-76142912/vault.tar.gz) |
 
 On the live site: [Downloads](https://benjsmith.github.io/corporatebench-biocure-wiki/downloads.html)
 
@@ -24,13 +24,13 @@ On the live site: [Downloads](https://benjsmith.github.io/corporatebench-biocure
 
 | Path | Contents |
 |------|----------|
-| `/` | Static CE wiki viewer + Knowledge Atlas (`data.json.gz`, ~28 842 pages) |
+| `/` | Static CE wiki viewer + Knowledge Atlas (`data.json.gz`, ~28,849 pages) |
 | [Releases](https://github.com/benjsmith/corporatebench-biocure-wiki/releases) | Frozen wiki + vault tarballs (hybrid snapshot still published) |
 
 ## Snapshot
 
-- **Wiki tip (live Atlas):** `confirm-v1-membership-concepts` @ `34c3f63b8` (15 concepts; membership restore + SPEC-A/C/B2 densify; base `fc1bc3c9d`)
-- **Pages:** ~28 842 · **WikiLinks:** ~32 008 edges
+- **Wiki tip (live Atlas):** `confirm-v1-membership-concepts` @ `7074bbec6` (22 concepts; membership restore + SPEC-A/C/B2/D densify; base `fc1bc3c9d`)
+- **Pages:** 28,849 · **WikiLinks:** 32,201 edges
 - **Vault:** CorporateBench Biocure sources (static shards on Pages; full vault also in prior Release assets)
 - **Viewer lineage:** Pages static keeps Atlas-only >1k, edges mode pill, sticky selection (CE #11–#13), mobile doc modal + portrait sidebar (`82d6e66`)
 
