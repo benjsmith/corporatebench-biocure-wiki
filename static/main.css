@@ -1086,6 +1086,9 @@ body[data-modal="open"] #sidebar * { pointer-events: auto; }
   body:not([data-sidebar="collapsed"]) #sidebar > * {
     display: flex;
   }
+  /* That makes the page list a flex box too; keep its type groups
+   * stacked vertically instead of in one row. */
+  .sidebar-list { flex-direction: column; }
 
   .sidebar-restore {
     z-index: 70;
