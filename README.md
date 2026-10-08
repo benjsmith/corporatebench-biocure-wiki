@@ -6,7 +6,7 @@ Interactive atlas / wiki viewer for the Biocure CorporateBench tranche curated w
 
 ## Live Atlas
 
-The GitHub Pages Atlas serves **confirm-v1-membership-concepts** @ `38e5d4ed0` (membership restore + 86 capability/process concept pages on base tip `fc1bc3c9d`; person email/calendar hubs rewritten to claim-specific evidence). Tip SHA `38e5d4ed01fa93de8bbd3d9a5cc23095e02c7a23`.
+The GitHub Pages Atlas serves **pages-rw-integrate** @ `7f9dad942`: the source and evidence pages rewritten by hand from the vault documents, with people linked to their entity pages. Tip SHA `7f9dad942d91bd83c0dc341ca953cf9e0f938aa9`.
 
 ## Downloads
 
@@ -24,13 +24,13 @@ On the live site: [Downloads](https://benjsmith.github.io/corporatebench-biocure
 
 | Path | Contents |
 |------|----------|
-| `/` | Static CE wiki viewer + Knowledge Atlas (`data.json.gz`, ~28,913 pages) |
+| `/` | Static CE wiki viewer + Knowledge Atlas (`data.json.gz`, 27,904 pages) |
 | [Releases](https://github.com/benjsmith/corporatebench-biocure-wiki/releases) | Frozen wiki + vault tarballs (hybrid snapshot still published) |
 
 ## Snapshot
 
-- **Wiki tip (live Atlas):** `confirm-v1-membership-concepts` @ `38e5d4ed0` (86 concepts; membership restore + SPEC-A/C/B2/D densify + orphan waves + claim-specific evidence rewrite; base `fc1bc3c9d`)
-- **Pages:** 27,904 · **WikiLinks:** 34,950 edges
+- **Wiki tip (live Atlas):** `pages-rw-integrate` @ `7f9dad942` (base `62e507488`)
+- **Pages:** 27,904 · **WikiLinks:** 80,480 edges
 - **Vault:** CorporateBench Biocure sources (static shards on Pages; full vault also in prior Release assets)
 - **Viewer lineage:** Pages static keeps Atlas-only >1k, edges mode pill, sticky selection (CE #11–#13), mobile doc modal + portrait sidebar (`82d6e66`)
 
